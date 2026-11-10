@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Upload a folder, files, or a ZIP to a GitHub repository as a single commit, right from your browser.">
+<title>Folder to GitHub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f3f4f7; --surface:#fff; --ink:#121620; --muted:#596273; --line:#d9dde5;
+  --accent:#2446f0; --on-accent:#fff; --ok:#12794a; --warn:#9a5b00; --err:#b42318;
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --body:"Geist",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1218; --surface:#171b24; --ink:#eceff4; --muted:#9aa4b5; --line:#2a3140;
+  --accent:#7d93ff; --on-accent:#0b1030; --ok:#62d394; --warn:#f0b429; --err:#ff8f85}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-bottom:7rem}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.55 var(--body);
+  padding:clamp(1.25rem,4vw,3.5rem) max(clamp(1rem,4vw,3rem),env(safe-area-inset-right)) 8rem max(clamp(1rem,4vw,3rem),env(safe-area-inset-left));
+  font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+main{max-width:1120px;margin:0 auto}
+h1,h2{font-family:var(--display);font-optical-sizing:auto;text-wrap:balance}
+h1{font-size:clamp(2.5rem,1.4rem + 5vw,4.5rem);line-height:.98;letter-spacing:-.035em;font-weight:700;margin:0 0 1rem}
+.lede{font-size:clamp(1.0625rem,1rem + .3vw,1.25rem);line-height:1.5;color:var(--muted);max-width:34em;margin:0 0 clamp(1.75rem,4vw,3rem);text-wrap:pretty}
+.layout{display:grid;grid-template-columns:minmax(0,1fr);column-gap:clamp(2rem,5vw,4.5rem)}
+@media (min-width:980px){.layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);align-items:start}.layout>div:first-child .step:first-child{border-top:0}}
+.step{display:grid;grid-template-columns:2rem minmax(0,1fr);column-gap:1rem;padding:1.75rem 0 2rem;border-top:1px solid var(--line)}
+@media (min-width:520px){.step{grid-template-columns:2.75rem minmax(0,1fr)}}
+.n{font:700 1.75rem/1 var(--display);color:var(--accent);letter-spacing:-.04em}
+h2{font-size:1.5rem;line-height:1.1;letter-spacing:-.02em;font-weight:650;margin:0 0 1.25rem;grid-column:2}
+.step>.n{grid-row:1;grid-column:1}
+.step>:not(.n):not(h2){grid-column:2}
+label{display:block;font-size:.875rem;font-weight:600;margin:0 0 1rem}
+.lab{margin:0}
+.field{margin:0 0 1rem}
+.help{display:block;font-size:.8125rem;font-weight:400;color:var(--muted);margin-top:.35rem;line-height:1.45}
+.help a{color:var(--accent)}
+input[type=text],input[type=password],input[type=search]{display:block;width:100%;min-height:2.75rem;margin-top:.4rem;padding:.6rem .8rem;font:400 1rem/1.3 var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:.6rem;transition:border-color .15s}
+input::placeholder{color:var(--muted);opacity:.7}
+input:hover{border-color:color-mix(in srgb,var(--ink) 35%,var(--line))}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pw{position:relative;margin-top:.4rem}
+.pw input{margin:0;padding-right:4.75rem}
+.reveal{position:absolute;right:.35rem;top:50%;transform:translateY(-50%);min-height:2.15rem;padding:0 .7rem;font:500 .8125rem var(--body);color:var(--muted);background:none;border:0;border-radius:.4rem;cursor:pointer}
+.reveal:hover{color:var(--ink)}
+.row{display:grid;gap:0 1rem}
+@media (min-width:520px){.row{grid-template-columns:1fr 1fr}}
+.check{display:flex;gap:.65rem;align-items:flex-start;font-weight:450;font-size:.9375rem;margin:0 0 .85rem;cursor:pointer}
+.check input{width:1.15rem;height:1.15rem;margin:.2rem 0 0;accent-color:var(--accent);flex:none}
+.sub-opt{margin:-.25rem 0 1rem 1.8rem}
+.sub-opt .check{margin:0}
+.who{display:flex;align-items:center;gap:.6rem;min-height:1.75rem;font-size:.875rem;color:var(--muted);margin:-.25rem 0 1rem}
+.who img{width:1.5rem;height:1.5rem;border-radius:50%}
+.who.ok{color:var(--ok);font-weight:550}.who.bad{color:var(--err);font-weight:550}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.75rem;padding:0 1.1rem;font:600 .9375rem var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:.6rem;cursor:pointer;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{color:var(--on-accent);background:var(--accent);border-color:var(--accent);min-width:10.5rem}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.primary.cancel{background:none;color:var(--err);border-color:var(--err)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.quiet{border-color:transparent;background:none;color:var(--muted);font-weight:500}
+.drop{border:2px dashed var(--line);border-radius:1.1rem;padding:clamp(1.25rem,4vw,2.25rem);background:var(--surface);transition:border-color .15s,background .15s}
+.drop.over,body.dragging .drop{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.drop .big{font:700 clamp(1.5rem,1rem + 2.4vw,2.25rem)/1.05 var(--display);letter-spacing:-.03em;margin:0 0 .5rem;overflow-wrap:anywhere;text-wrap:balance}
+.drop .hint{color:var(--muted);margin:0 0 1.25rem;font-size:.9375rem;max-width:36em}
+.srcs{display:flex;flex-wrap:wrap;gap:.6rem}
+@media (pointer:coarse){.srcs .zip{order:-1}}
+.srcmsg{min-height:1.4rem;margin:.9rem 0 0;font-size:.875rem;color:var(--muted)}
+.opts{margin-top:1.25rem}
+.stats{display:flex;flex-wrap:wrap;gap:.25rem 1.5rem;align-items:baseline;margin:0 0 1rem}
+.stats b{font:700 1.75rem/1 var(--display);letter-spacing:-.03em}
+.stats span{color:var(--muted);font-size:.875rem;margin-left:.3rem}
+.note{font-size:.8125rem;color:var(--warn);margin:.5rem 0 0}
+.manifest{margin:.9rem 0 0;padding:0;list-style:none;max-height:20rem;overflow:auto;border:1px solid var(--line);border-radius:.7rem;background:var(--surface);overscroll-behavior:contain}
+.manifest li{display:grid;grid-template-columns:.55rem minmax(0,1fr) auto 2.25rem;align-items:center;gap:.65rem;padding:0 .25rem 0 .85rem;min-height:2.5rem;border-bottom:1px solid var(--line);font:400 .8125rem/1.35 var(--mono)}
+.manifest li:last-child{border:0}
+.manifest .dot{width:.55rem;height:.55rem;border-radius:50%;background:var(--line)}
+.manifest .done .dot{background:var(--ok)}
+.manifest .p{overflow-wrap:anywhere;padding:.35rem 0}
+.manifest .s{color:var(--muted)}
+.manifest .x{width:2.25rem;height:2.25rem;border:0;background:none;color:var(--muted);font-size:1.1rem;border-radius:.4rem;cursor:pointer}
+.manifest .x:hover{color:var(--err)}
+.manifest .more{display:block;padding:.6rem .85rem;color:var(--muted);font-family:var(--body)}
+.empty{margin:.9rem 0 0;color:var(--muted);font-size:.9375rem}
+.msg{margin:1.1rem 0 0;font-size:.9375rem;min-height:1.4rem}
+.msg.err{color:var(--err);font-weight:550}.msg.ok{color:var(--ok);font-weight:550}
+.result{margin-top:1.1rem;padding:1.25rem;border:1px solid var(--ok);border-radius:.9rem}
+.result p{margin:0 0 1rem;font:650 1.25rem/1.2 var(--display);letter-spacing:-.02em}
+.result .acts{display:flex;flex-wrap:wrap;gap:.6rem}
+.result a.btn{text-decoration:none}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:.8rem max(1rem,env(safe-area-inset-right)) calc(.8rem + env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left))}
+.bar .in{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:1rem}
+.bar .t{flex:1;min-width:0}
+.bar .main{font-weight:600;font-size:.9375rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .subt{font-size:.8125rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog{position:absolute;left:0;top:-1px;height:3px;width:0;background:var(--accent);transition:width .2s}
+@media (max-width:420px){.btn.primary{min-width:0;padding:0 1rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Folder to GitHub</h1>
+  <p class="lede">Send a folder, a few files, or a ZIP to any repository as a single commit. Everything happens in this page, and your token goes only to GitHub.</p>
+  <noscript><p class="msg err">This page needs JavaScript to talk to GitHub.</p></noscript>
+
+  <div class="layout">
+    <div>
+      <section class="step" aria-labelledby="h1s">
+        <span class="n" aria-hidden="true">1</span><h2 id="h1s">Connect</h2>
+        <div class="field">
+          <label for="token" class="lab">Access token</label>
+          <div class="pw">
+            <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" aria-describedby="tokenHelp">
+            <button class="reveal" id="reveal" type="button" aria-pressed="false" aria-label="Show token">Show</button>
+          </div>
+          <span class="help" id="tokenHelp">Fine-grained token: Contents, read and write. Classic token: the repo scope. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create one</a></span>
+        </div>
+        <div class="who" id="who" aria-live="polite"></div>
+        <label class="check"><input id="remember" type="checkbox"> <span>Remember token on this device<span class="help">Saved in this browser only. Leave off on a shared computer.</span></span></label>
+      </section>
+
+      <section class="step" aria-labelledby="h2s">
+        <span class="n" aria-hidden="true">2</span><h2 id="h2s">Destination</h2>
+        <label class="check"><input id="create" type="checkbox"> Create a new repository</label>
+        <div class="sub-opt" id="privWrap" hidden><label class="check"><input id="private" type="checkbox" checked> Make it private</label></div>
+        <label for="repo"><span id="repoLabel">Repository</span>
+          <input id="repo" type="text" list="repos" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/repo">
+          <span class="help" id="repoHelp">Paste a GitHub URL, or pick from your repositories once connected.</span>
+        </label>
+        <datalist id="repos"></datalist><datalist id="branches"></datalist>
+        <div class="row">
+          <label for="branch">Branch
+            <input id="branch" type="text" list="branches" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Default branch">
+          </label>
+          <label for="prefix">Folder in repo
+            <input id="prefix" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Repository root">
+          </label>
+        </div>
+        <label for="commit">Commit message
+          <input id="commit" type="text" value="Upload files">
+        </label>
+      </section>
+    </div>
+
+    <div>
+      <section class="step" aria-labelledby="h3s">
+        <span class="n" aria-hidden="true">3</span><h2 id="h3s">Choose what to upload</h2>
+        <div class="drop" id="drop">
+          <p class="big" id="dropTitle">Drop a folder or ZIP here</p>
+          <p class="hint" id="dropHint">Or pick one below. You can add more than once and the files combine.</p>
+          <div class="srcs">
+            <button class="btn" type="button" id="bFolder">Folder</button>
+            <button class="btn" type="button" id="bFiles">Files</button>
+            <button class="btn zip" type="button" id="bZip">ZIP file</button>
+          </div>
+          <p class="srcmsg" id="srcMsg" aria-live="polite"></p>
+        </div>
+        <input id="pFolder" type="file" webkitdirectory multiple hidden>
+        <input id="pFiles" type="file" multiple hidden>
+        <input id="pZip" type="file" accept=".zip,application/zip" hidden>
+        <div class="opts">
+          <label class="check"><input id="skip" type="checkbox" checked> <span>Skip clutter and secrets<span class="help">node_modules, .DS_Store, .env files, private keys. The .git folder is always left out.</span></span></label>
+          <label class="check"><input id="keepRoot" type="checkbox"> <span>Keep the top-level folder name<span class="help">Off puts the folder’s contents straight into the destination.</span></span></label>
+        </div>
+      </section>
+
+      <section class="step" aria-labelledby="h4s">
+        <span class="n" aria-hidden="true">4</span><h2 id="h4s">Review</h2>
+        <div id="review">
+          <p class="empty" id="empty">Nothing selected yet.</p>
+          <div id="filled" hidden>
+            <div class="stats"><div><b id="cnt">0</b><span>files</span></div><div><b id="size">0 KB</b><span>total</span></div></div>
+            <input id="filter" type="search" placeholder="Filter files" aria-label="Filter files" style="margin:0">
+            <ul class="manifest" id="manifest" aria-label="Files to upload"></ul>
+            <p class="note" id="note" hidden></p>
+            <div style="margin-top:.9rem"><button class="btn quiet" id="clear" type="button">Clear all</button></div>
+          </div>
+        </div>
+        <p class="msg" id="msg" aria-live="polite"></p>
+        <div class="result" id="result" hidden></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="bar">
+  <div class="prog" id="prog"></div>
+  <div class="in">
+    <div class="t"><div class="main" id="barMain">No files yet</div><div class="subt" id="barSub">Add a folder in step 3</div></div>
+    <button class="btn primary" id="go" type="button" disabled>Upload to GitHub</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const API = 'https://api.github.com';
+// Never uploaded when "skip" is on. The .git folder is always dropped (GitHub rejects it).
+const SKIP = /(^|\/)(node_modules|__MACOSX)(\/|$)|(^|\/)(\.DS_Store|Thumbs\.db|\.env(\.(?!example$|sample$)[^/]*)?|id_rsa|id_ed25519|[^/]+\.pem|[^/]+\.key)$/i;
+const GITDIR = /(^|\/)\.git(\/|$)/i;
+const MAX = 50 * 1024 * 1024,      // per-file limit
+      SHOW = 200,                  // rows rendered in the review list
+      INLINE_MAX = 1024 * 1024,    // text files up to this size go straight into the tree (no blob call)
+      BIG = 8 * 1024 * 1024,       // files above this upload one at a time to keep memory low
+      TREE_CHARS = 2e6, TREE_ENTRIES = 400;
+const files = new Map();           // clean path -> File
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
+const plural = (n, w) => n.toLocaleString() + ' ' + w + (n === 1 ? '' : 's');
+const coarse = matchMedia('(pointer:coarse)').matches;
+let token = '', me = '', busy = false, cancelled = false, ctrl = null, rowMap = new Map(), defaults = {};
+
+/* ---------- saved settings ---------- */
+const store = {
+  get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: k => { try { localStorage.removeItem(k); } catch {} }
+};
+$('#repo').value = store.get('f2g.repo'); $('#branch').value = store.get('f2g.branch');
+$('#prefix').value = store.get('f2g.prefix');
+if (store.get('f2g.token')) { $('#token').value = store.get('f2g.token'); $('#remember').checked = true; }
+const idleTitle = () => coarse ? 'Choose what to upload' : 'Drop a folder or ZIP here';
+const idleHint = () => coarse ? 'On a phone, a ZIP file is the easiest way to send a whole folder.' : 'Or pick one below. You can add more than once and the files combine.';
+$('#dropTitle').textContent = idleTitle(); $('#dropHint').textContent = idleHint();
+
+/* ---------- connect ---------- */
+$('#reveal').onclick = e => {
+  const t = $('#token'), show = t.type === 'password';
+  t.type = show ? 'text' : 'password'; e.target.textContent = show ? 'Hide' : 'Show';
+  e.target.setAttribute('aria-pressed', show); e.target.setAttribute('aria-label', show ? 'Hide token' : 'Show token');
+};
+$('#remember').addEventListener('change', () => {
+  const t = $('#token').value.trim();
+  $('#remember').checked && t ? store.set('f2g.token', t) : store.del('f2g.token');
+});
+function setWho(cls, text, avatar) {
+  const w = $('#who'); w.className = 'who ' + cls; w.textContent = '';
+  if (avatar) { const i = new Image(); i.src = avatar; i.alt = ''; w.append(i); }
+  w.append(text);
+}
+let vSeq = 0, vTimer;
+async function verify() {
+  const mine = ++vSeq; token = $('#token').value.trim(); me = ''; defaults = {};
+  $('#repos').textContent = '';
+  if (!token) return setWho('', '');
+  setWho('', 'Checking token…');
+  try {
+    const u = await gh('/user'); if (mine !== vSeq) return;
+    me = u.login; setWho('ok', 'Connected as ' + u.login, u.avatar_url);
+  } catch (e) {
+    if (mine !== vSeq) return;
+    return setWho('bad', e.status === 401 ? 'That token was not accepted. Check it and try again.' : 'Could not reach GitHub: ' + e.message);
+  }
+  try {   // listing repos is a convenience; some tokens cannot do it, so never fail on it
+    const list = await gh('/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member'); if (mine !== vSeq) return;
+    const dl = $('#repos');
+    list.filter(r => !r.permissions || r.permissions.push).forEach(r => {
+      defaults[r.full_name.toLowerCase()] = r.default_branch;
+      dl.append(Object.assign(document.createElement('option'), { value: r.full_name }));
+    });
+    repoChanged();
+  } catch {}
+}
+$('#token').addEventListener('input', () => {
+  clearTimeout(vTimer); vTimer = setTimeout(verify, 700);
+  if ($('#remember').checked) { const t = $('#token').value.trim(); t ? store.set('f2g.token', t) : store.del('f2g.token'); }
+});
+$('#token').addEventListener('change', () => { clearTimeout(vTimer); verify(); });
+
+/* ---------- destination ---------- */
+function slugOf() {
+  let s = $('#repo').value.trim();
+  const m = s.match(/github\.com[\/:]([^\/\s]+)\/([^\/\s#?]+)/i);   // URLs, including /tree/branch tails and git@ links
+  if (m) s = m[1] + '/' + m[2];
+  return s.replace(/\.git$/i, '').replace(/\/+$/, '');
+}
+const badBranch = b => !!b && (/[\s~^:?*\[\\]/.test(b) || /\.\.|\/\/|@\{/.test(b) || /^[\/.-]|[\/.]$|\.lock$/.test(b) || b === '@');
+let bTimer;
+function repoChanged() {
+  const slug = slugOf();
+  $('#branch').placeholder = defaults[slug.toLowerCase()] || 'Default branch';
+  clearTimeout(bTimer);
+  if (!token || $('#create').checked || !/^[\w.-]+\/[\w.-]+$/.test(slug)) return refresh();
+  bTimer = setTimeout(async () => {
+    try {
+      const bs = await gh('/repos/' + slug + '/branches?per_page=100'), dl = $('#branches'); dl.textContent = '';
+      bs.forEach(b => dl.append(Object.assign(document.createElement('option'), { value: b.name })));
+    } catch {}
+  }, 350);
+  refresh();
+}
+$('#repo').addEventListener('input', repoChanged);
+['branch', 'prefix'].forEach(id => $('#' + id).addEventListener('input', refresh));
+$('#create').addEventListener('change', () => {
+  const c = $('#create').checked;
+  $('#privWrap').hidden = !c;
+  $('#repoLabel').textContent = c ? 'New repository name' : 'Repository';
+  $('#repo').placeholder = c ? 'my-new-repo' : 'owner/repo';
+  $('#repoHelp').textContent = c ? 'It will be created under your account with a starter commit.' : 'Paste a GitHub URL, or pick from your repositories once connected.';
+  refresh();
+});
+
+/* ---------- reading sources ---------- */
+function srcMsg(t) { $('#srcMsg').textContent = t || ''; }
+// Normalise a picked path. Returns '' for anything unsafe (.. segments, empty).
+function cleanPath(p) {
+  const parts = String(p).replace(/\\/g, '/').split('/').filter(s => s && s !== '.');
+  return !parts.length || parts.includes('..') ? '' : parts.join('/');
+}
+let bad = 0;
+function addFile(path, file) { const c = cleanPath(path); if (c) files.set(c, file); else bad++; }
+function report(n, what) { srcMsg((n ? 'Added ' + plural(n, 'file') : 'No files found') + (what ? ' from ' + what : '') + '.' + (bad ? ' ' + plural(bad, 'file') + ' skipped for an unsafe path.' : '')); bad = 0; }
+const bind = (btn, input, fn) => {
+  $(btn).onclick = () => { if (!busy) $(input).click(); };
+  $(input).onchange = async e => { const f = [...e.target.files]; e.target.value = ''; if (!busy) await fn(f); };
+};
+bind('#bFolder', '#pFolder', async f => { f.forEach(x => addFile(x.webkitRelativePath || x.name, x)); report(f.length); refresh(); });
+bind('#bFiles', '#pFiles', async f => { f.forEach(x => addFile(x.name, x)); report(f.length); refresh(); });
+bind('#bZip', '#pZip', async f => { for (const z of f) await addZip(z); refresh(); });
+
+let zipLoad;
+function loadZipLib() {
+  if (window.JSZip) return Promise.resolve();
+  return zipLoad || (zipLoad = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = res; s.onerror = () => { zipLoad = null; s.remove(); rej(new Error('Could not load the ZIP reader. Check your connection.')); };
+    document.head.append(s);
+  }));
+}
+async function addZip(file) {
+  try {
+    srcMsg('Reading ' + file.name + '…');
+    await loadZipLib();
+    const zip = await JSZip.loadAsync(file), jobs = [];
+    zip.forEach((p, entry) => { if (!entry.dir) jobs.push(entry.async('blob').then(b => addFile(p, new File([b], p.split('/').pop())))); });
+    await Promise.all(jobs);
+    report(jobs.length, file.name);
+  } catch (e) { srcMsg('Could not open ' + file.name + ': ' + e.message); }
+}
+
+/* drag and drop works anywhere on the page */
+const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+let depth = 0;
+document.addEventListener('dragenter', e => { if (hasFiles(e)) { e.preventDefault(); depth++; document.body.classList.add('dragging'); } });
+document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+document.addEventListener('dragleave', e => { if (hasFiles(e) && --depth <= 0) { depth = 0; document.body.classList.remove('dragging'); } });
+document.addEventListener('drop', async e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); depth = 0; document.body.classList.remove('dragging');
+  if (busy) return;
+  // entries must be collected synchronously, before the first await
+  const entries = [], loose = [];
+  for (const i of e.dataTransfer.items) {
+    if (i.kind !== 'file') continue;
+    const en = i.webkitGetAsEntry && i.webkitGetAsEntry();
+    if (en) entries.push(en); else { const f = i.getAsFile(); if (f) loose.push(f); }
+  }
+  srcMsg('Reading dropped items…');
+  const before = files.size; let zipped = false;
+  try {
+    for (const f of loose) { if (/\.zip$/i.test(f.name)) { zipped = true; await addZip(f); } else addFile(f.name, f); }
+    for (const en of entries) {
+      if (en.isFile && /\.zip$/i.test(en.name)) { zipped = true; await addZip(await new Promise((res, rej) => en.file(res, rej))); }
+      else await walk(en);
+    }
+    if (!zipped) report(files.size - before);
+  } catch (err) { srcMsg('Could not read some dropped items: ' + err.message); }
+  refresh();
+});
+async function walk(en) {
+  if (en.isFile) addFile(en.fullPath, await new Promise((res, rej) => en.file(res, rej)));
+  else if (en.isDirectory) {
+    const r = en.createReader(); let batch;
+    do { batch = await new Promise((res, rej) => r.readEntries(res, rej)); for (const c of batch) await walk(c); } while (batch.length);
+  }
+}
+
+/* ---------- review ---------- */
+function current() {
+  const skipOn = $('#skip').checked, out = [], big = []; let junk = 0;
+  for (const [path, file] of files) {
+    if (GITDIR.test(path) || (skipOn && SKIP.test(path))) { junk++; continue; }
+    if (file.size > MAX) { big.push(path); continue; }
+    out.push({ path, file });
+  }
+  const roots = new Set(out.map(o => o.path.split('/')[0]));
+  const strip = !$('#keepRoot').checked && roots.size === 1 && out.every(o => o.path.includes('/'));
+  const pre = cleanPath($('#prefix').value);
+  out.forEach(o => { const p = strip ? o.path.split('/').slice(1).join('/') : o.path; o.repoPath = pre ? pre + '/' + p : p; });
+  return { out, junk, big };
+}
+function refresh() {
+  if (busy) return;
+  const { out, junk, big } = current(), total = out.reduce((s, o) => s + o.file.size, 0);
+  $('#empty').hidden = files.size > 0; $('#filled').hidden = files.size === 0;
+  $('#cnt').textContent = out.length.toLocaleString(); $('#size').textContent = fmt(total);
+  const q = $('#filter').value.trim().toLowerCase(), list = $('#manifest');
+  list.textContent = ''; rowMap = new Map();
+  const shown = out.filter(o => !q || o.repoPath.toLowerCase().includes(q));
+  shown.slice(0, SHOW).forEach(o => {
+    const li = document.createElement('li'); li.dataset.path = o.path;
+    li.innerHTML = '<span class="dot"></span><span class="p"></span><span class="s"></span><button class="x" type="button" aria-label="Remove file">×</button>';
+    li.children[1].textContent = o.repoPath; li.children[2].textContent = fmt(o.file.size);
+    list.append(li); rowMap.set(o.path, li);
+  });
+  if (shown.length > SHOW) { const li = document.createElement('li'); li.innerHTML = '<span class="more"></span>'; li.style.display = 'block'; li.firstChild.textContent = 'and ' + (shown.length - SHOW).toLocaleString() + ' more, use the filter to find a file'; list.append(li); }
+  const notes = [];
+  if (junk) notes.push(junk + ' left out (clutter, secrets, or .git)');
+  if (big.length) notes.push(big.length + ' over 50 MB left out (' + big.slice(0, 2).join(', ') + (big.length > 2 ? '…' : '') + ')');
+  $('#note').hidden = !notes.length; $('#note').textContent = notes.join('. ') + '.';
+  const slug = slugOf(), br = $('#branch').value.trim() || $('#branch').placeholder;
+  $('#barMain').textContent = out.length ? plural(out.length, 'file') + ' · ' + fmt(total) : 'No files yet';
+  $('#barSub').textContent = out.length ? (slug ? '→ ' + slug + ' · ' + br : 'Enter a destination in step 2') : 'Add files in step 3';
+  $('#go').disabled = !out.length;
+  if (out.length) {
+    const roots = new Set(out.map(o => o.path.split('/')[0]));
+    $('#dropTitle').textContent = roots.size === 1 && out[0].path.includes('/') ? [...roots][0] : plural(out.length, 'file') + ' ready';
+    $('#dropHint').textContent = 'Add more with the buttons below, or drop another folder.';
+  } else { $('#dropTitle').textContent = idleTitle(); $('#dropHint').textContent = idleHint(); }
+}
+$('#manifest').addEventListener('click', e => { if (!busy && e.target.classList.contains('x')) { files.delete(e.target.closest('li').dataset.path); refresh(); } });
+$('#clear').onclick = () => { if (busy) return; files.clear(); $('#result').hidden = true; msg(''); srcMsg(''); refresh(); };
+['skip', 'keepRoot'].forEach(id => $('#' + id).addEventListener('change', refresh));
+$('#filter').addEventListener('input', refresh);
+
+/* ---------- GitHub ---------- */
+const CANCELLED = () => Object.assign(new Error('Cancelled'), { cancelled: true });
+async function gh(path, opts = {}, attempt = 0) {
+  const { noRetry, ...init } = opts;
+  const headers = { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token, 'X-GitHub-Api-Version': '2022-11-28' };
+  if (init.body) headers['Content-Type'] = 'application/json';   // GETs stay simple requests (no CORS preflight for content type)
+  let res;
+  try { res = await fetch(API + path, { ...init, headers, signal: ctrl && ctrl.signal }); }
+  catch (e) {
+    if (e.name === 'AbortError') throw CANCELLED();
+    if (!noRetry && attempt < 2) { await sleep(1000 * (attempt + 1)); if (cancelled) throw CANCELLED(); return gh(path, opts, attempt + 1); }
+    throw e;
+  }
+  if (!res.ok) {
+    // Retry only when waiting can help: GitHub's rate limits (they say how long) and server hiccups.
+    // A plain 403 means "not allowed", which retrying will never fix.
+    const ra = Number(res.headers.get('retry-after')), left = res.headers.get('x-ratelimit-remaining'), reset = Number(res.headers.get('x-ratelimit-reset'));
+    let wait = 0;
+    if (ra) wait = ra;
+    else if ((res.status === 403 || res.status === 429) && left === '0' && reset) wait = Math.max(1, reset - Date.now() / 1000 + 1);
+    else if (res.status >= 500) wait = 1.5 * (attempt + 1);
+    if (wait && wait <= 90 && attempt < 4 && !noRetry) {
+      if (busy && wait > 3) msg('GitHub asked us to slow down. Continuing in ' + Math.ceil(wait) + ' seconds…');
+      await sleep(wait * 1000); if (cancelled) throw CANCELLED();
+      return gh(path, opts, attempt + 1);
+    }
+    let m = res.statusText;
+    try { const j = await res.json(); m = j.message || m; if (j.errors && j.errors[0] && j.errors[0].message) m += ' (' + j.errors[0].message + ')'; } catch {}
+    throw Object.assign(new Error(m), { status: res.status });
+  }
+  return res.status === 204 ? null : res.json();
+}
+const toB64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.slice(r.result.indexOf(',') + 1)); r.onerror = () => rej(new Error('Could not read the file')); r.readAsDataURL(f); });
+const enc = b => b.split('/').map(encodeURIComponent).join('/');
+function asText(buf) {   // the file as a string if it is valid UTF-8 text, else null (binary)
+  const u = new Uint8Array(buf);
+  if (u.includes(0)) return null;
+  try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(u); } catch { return null; }
+}
+function msg(t, cls) { const m = $('#msg'); m.textContent = t; m.className = 'msg ' + (cls || ''); }
+function setBusy(b) {
+  busy = b; const g = $('#go');
+  g.textContent = b ? 'Cancel' : 'Upload to GitHub'; g.classList.toggle('cancel', b); g.disabled = false;
+  $('#clear').disabled = b;
+  if (!b) { $('#prog').style.width = '0'; refresh(); }
+}
+window.addEventListener('beforeunload', e => { if (busy) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- upload ---------- */
+$('#go').onclick = async () => {
+  if (busy) { cancelled = true; if (ctrl) ctrl.abort(); msg('Cancelling…'); return; }
+  const { out } = current(); if (!out.length) return;
+  $('#result').hidden = true;
+  token = $('#token').value.trim();
+  if (!token) return msg('Add your access token in step 1.', 'err');
+  const create = $('#create').checked; let slug = slugOf();
+  if (create ? !/^[\w.-]+$/.test(slug.split('/').pop()) : !/^[\w.-]+\/[\w.-]+$/.test(slug)) return msg(create ? 'Enter a name for the new repository.' : 'Enter the repository as owner/repo.', 'err');
+  const wantBranch = $('#branch').value.trim(), message = $('#commit').value.trim() || 'Upload files', isPrivate = $('#private').checked;
+  if (badBranch(wantBranch)) return msg('That branch name is not valid. Avoid spaces and the characters ~ ^ : ? * [ \\ and "..".', 'err');
+  store.set('f2g.repo', create ? '' : slug); store.set('f2g.branch', wantBranch); store.set('f2g.prefix', $('#prefix').value.trim());
+  $('#remember').checked ? store.set('f2g.token', token) : store.del('f2g.token');
+  cancelled = false; ctrl = new AbortController(); setBusy(true);
+  let madeRepo = false;
+  try {
+    let repo;
+    if (create) {
+      if (!me) await verify();
+      if (!me) throw new Error('Could not verify your token');
+      msg('Creating repository…');
+      repo = await gh('/user/repos', { method: 'POST', noRetry: true, body: JSON.stringify({ name: slug.split('/').pop(), private: isPrivate, auto_init: true }) });
+      madeRepo = true; slug = repo.full_name;
+      $('#create').checked = false; $('#create').dispatchEvent(new Event('change')); $('#repo').value = slug;
+      store.set('f2g.repo', slug);
+      // the first commit can take a moment to appear; wait for it instead of guessing
+      for (let i = 0; i < 8; i++) {
+        try { await gh('/repos/' + slug + '/git/ref/heads/' + enc(repo.default_branch)); break; }
+        catch (e) { if (e.status !== 404 && e.status !== 409) throw e; await sleep(1000); if (cancelled) throw CANCELLED(); }
+      }
+    } else {
+      msg('Checking repository…'); repo = await gh('/repos/' + slug);
+      if (repo.permissions && repo.permissions.push === false) throw new Error('This token cannot write to ' + slug);
+    }
+    const branch = wantBranch || repo.default_branch, ref = b => '/repos/' + slug + '/git/ref/heads/' + enc(b);
+    let base = null, seeded = false;
+    try { base = (await gh(ref(branch))).object.sha; } catch (e) {
+      if (e.status === 409) {   // empty repository: git needs one commit before anything else
+        msg('Repository is empty. Creating the first commit…');
+        await gh('/repos/' + slug + '/contents/.gitkeep', { method: 'PUT', body: JSON.stringify({ message: 'Initialize repository', content: 'Cg==', branch }) });
+        base = (await gh(ref(branch))).object.sha; seeded = true;
+      } else if (e.status !== 404) throw e;
+    }
+    if (!base) {
+      msg('Creating branch ' + branch + ' from ' + repo.default_branch + '…');
+      base = (await gh(ref(repo.default_branch))).object.sha;
+      await gh('/repos/' + slug + '/git/refs', { method: 'POST', body: JSON.stringify({ ref: 'refs/heads/' + branch, sha: base }) });
+    }
+    const parent = await gh('/repos/' + slug + '/git/commits/' + base);
+
+    // Text files go straight into the tree. Binary or large files are uploaded as blobs first.
+    const total = out.reduce((s, o) => s + o.file.size, 0), entries = new Array(out.length);
+    let next = 0, done = 0, sent = 0, gate = Promise.resolve();
+    const blob = async o => {
+      const b = await gh('/repos/' + slug + '/git/blobs', { method: 'POST', body: JSON.stringify({ content: await toB64(o.file), encoding: 'base64' }) });
+      return { path: o.repoPath, mode: '100644', type: 'blob', sha: b.sha };
+    };
+    async function prep(o) {
+      if (o.file.size > 0 && o.file.size <= INLINE_MAX) {
+        const text = asText(await o.file.arrayBuffer());
+        if (text !== null) return { path: o.repoPath, mode: '100644', type: 'blob', content: text };
+      }
+      if (o.file.size <= BIG) return blob(o);
+      const prev = gate; let release; gate = new Promise(r => release = r);   // one big file at a time
+      await prev; try { if (cancelled) throw CANCELLED(); return await blob(o); } finally { release(); }
+    }
+    async function worker() {
+      while (next < out.length && !cancelled) {
+        const i = next++, o = out[i];
+        try { entries[i] = await prep(o); }
+        catch (e) { if (!e.cancelled) e.file = o.repoPath; cancelled = true; ctrl.abort(); throw e; }
+        done++; sent += o.file.size;
+        $('#prog').style.width = (sent / Math.max(total, 1) * 92) + '%';
+        $('#barMain').textContent = 'Uploading ' + done + ' of ' + out.length;
+        $('#barSub').textContent = fmt(sent) + ' of ' + fmt(total);
+        msg('Uploading files…');
+        const li = rowMap.get(o.path); if (li) li.classList.add('done');
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(4, out.length) }, worker));
+    if (cancelled) throw CANCELLED();
+
+    msg('Creating commit…');
+    const list = entries.slice();
+    // if we had to seed an empty repo, remove the placeholder again unless the user uploads their own
+    if (seeded && !out.some(o => o.repoPath === '.gitkeep')) list.push({ path: '.gitkeep', mode: '100644', type: 'blob', sha: null });
+    let tree = parent.tree.sha, chunk = [], size = 0;
+    const flush = async () => {   // big uploads are split into several chained trees to stay under GitHub's request limits
+      if (!chunk.length) return;
+      tree = (await gh('/repos/' + slug + '/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: tree, tree: chunk }) })).sha;
+      chunk = []; size = 0;
+    };
+    for (const e of list) {
+      const n = (e.content ? e.content.length : 0) + 160;
+      if (chunk.length && (size + n > TREE_CHARS || chunk.length >= TREE_ENTRIES)) await flush();
+      chunk.push(e); size += n;
+    }
+    await flush();
+    if (tree === parent.tree.sha) throw Object.assign(new Error('same'), { same: true });
+    const c = await gh('/repos/' + slug + '/git/commits', { method: 'POST', body: JSON.stringify({ message, tree, parents: [base] }) });
+    await gh('/repos/' + slug + '/git/refs/heads/' + enc(branch), { method: 'PATCH', body: JSON.stringify({ sha: c.sha }) });
+
+    $('#prog').style.width = '100%'; msg('');
+    const r = $('#result'); r.textContent = '';
+    const p = document.createElement('p'); p.textContent = 'Uploaded ' + plural(out.length, 'file') + ' to ' + branch + '.';
+    const acts = document.createElement('div'); acts.className = 'acts';
+    const link = (t, h, pri) => Object.assign(document.createElement('a'), { className: 'btn' + (pri ? ' primary' : ''), textContent: t, href: h, target: '_blank', rel: 'noopener' });
+    const again = Object.assign(document.createElement('button'), { className: 'btn', type: 'button', textContent: 'Upload more' });
+    again.onclick = () => $('#clear').click();
+    acts.append(link('View commit', repo.html_url + '/commit/' + c.sha, true), link('Open repository', repo.html_url + '/tree/' + enc(branch)), again);
+    r.append(p, acts); r.hidden = false; r.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) {
+    if (e.cancelled) msg('Cancelled. Nothing was committed.' + (madeRepo ? ' The new repository was already created.' : ''));
+    else if (e.same) msg('Nothing to commit. The repository already has these exact files.', 'ok');
+    else {
+      let hint = '';
+      if (e.status === 401) hint = ' Check that the token is correct and has not expired.';
+      else if (e.status === 403) hint = ' The token may be missing write access to this repository' + (create ? ', or permission to create repositories' : '') + '.';
+      else if (e.status === 404) hint = ' Check the repository name and that the token can access it.';
+      else if (e.status === 422 && create) hint = ' A repository with that name may already exist. Untick “Create a new repository” to upload to it.';
+      else if (e.status === 422) hint = ' If the branch changed while uploading, try again.';
+      else if (e.name === 'TypeError') hint = ' Could not reach GitHub. Check your connection.';
+      msg('Upload failed' + (e.file ? ' on ' + e.file : '') + ': ' + e.message + '.' + hint + (madeRepo ? ' The new repository was created, but no files were committed.' : ' Nothing was committed, so the repository is unchanged.'), 'err');
+    }
+  } finally { ctrl = null; setBusy(false); }
+};
+
+if ($('#token').value) verify();
+refresh();
+</script>
+</body>
+</html>
