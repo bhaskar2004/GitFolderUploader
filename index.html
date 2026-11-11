@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="description" content="Direct in-browser commit engine. Upload folders, files, or ZIP bundles as single Git commits directly to GitHub without cloning.">
 <title>Folder to GitHub — Precision Git Commit Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,11 +13,10 @@
 <script>
   (function(){
     try {
-      const saved = localStorage.getItem('f2g.theme');
-      if (saved === 'dark' || saved === 'light') {
-        document.documentElement.setAttribute('data-theme', saved);
-        document.querySelector('meta[name="color-scheme"]').content = saved;
-      }
+      const saved = localStorage.getItem('f2g.theme') || 'light';
+      document.documentElement.setAttribute('data-theme', saved);
+      const meta = document.querySelector('meta[name="color-scheme"]');
+      if (meta) meta.content = saved;
     } catch(e) {}
   })();
 </script>

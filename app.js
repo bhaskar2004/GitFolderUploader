@@ -414,20 +414,24 @@ function updateThemeUI(theme) {
 }
 
 function initTheme() {
-  const saved = store.get('f2g.theme') || 'auto';
+  const saved = store.get('f2g.theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved === 'auto' ? '' : saved);
+  if (saved === 'auto') document.documentElement.removeAttribute('data-theme');
   updateThemeUI(saved);
   themeToggle?.addEventListener('click', () => {
-    const cur = document.documentElement.getAttribute('data-theme') || (store.get('f2g.theme') || 'auto');
-    const order = ['auto', 'dark', 'light'];
+    const cur = document.documentElement.getAttribute('data-theme') || (store.get('f2g.theme') || 'light');
+    const order = ['light', 'dark', 'auto'];
     const next = order[(order.indexOf(cur) + 1) % order.length];
     if (next === 'auto') {
       document.documentElement.removeAttribute('data-theme');
       store.del('f2g.theme');
-      $('meta[name="color-scheme"]').content = 'light dark';
+      const meta = $('meta[name="color-scheme"]');
+      if (meta) meta.content = 'light dark';
     } else {
       document.documentElement.setAttribute('data-theme', next);
       store.set('f2g.theme', next);
-      $('meta[name="color-scheme"]').content = next;
+      const meta = $('meta[name="color-scheme"]');
+      if (meta) meta.content = next;
     }
     updateThemeUI(next);
     playSound('pop');
