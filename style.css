@@ -1256,25 +1256,59 @@ textarea {
   color: var(--accent);
 }
 
-/* Unified Upload & Deployment Pipeline Card */
+/* Centered Live Upload & Deployment Pipeline Modal Overlay */
+.pipeline-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 13, 22, 0.74);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: overlayFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pipeline-overlay[hidden] {
+  display: none !important;
+}
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Centered Pipeline Card & Modal Box */
 .pipeline-card {
-  margin-top: 1rem;
-  padding: 1.15rem;
-  background: var(--surface-elevated);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  padding: 1.35rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.38), var(--shadow-lg);
   transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+.pipeline-modal-box {
+  width: min(650px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 0;
+  animation: modalSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+@keyframes modalSlideUp {
+  from { transform: scale(0.96) translateY(14px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }
 .pipeline-card.pipeline-completed {
   border-color: var(--ok-border);
   background: var(--surface);
-  box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.14), var(--shadow-sm);
+  box-shadow: 0 20px 50px -10px rgba(16, 185, 129, 0.22), var(--shadow-lg);
 }
 .pipeline-card.pipeline-error {
   border-color: var(--err-border);
   background: var(--surface);
-  box-shadow: 0 8px 24px -4px rgba(225, 29, 72, 0.14), var(--shadow-sm);
+  box-shadow: 0 20px 50px -10px rgba(225, 29, 72, 0.22), var(--shadow-lg);
 }
 .pipeline-header {
   display: flex;
@@ -1433,6 +1467,42 @@ textarea {
   background: var(--bg);
   border-radius: var(--radius-xs);
   border: 1px solid var(--line);
+}
+
+.pipeline-uploading-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+/* Error State Box with Retry Action */
+.pipeline-error-box {
+  margin-top: 1rem;
+  padding: 1rem 1.15rem;
+  background: var(--err-subtle);
+  border: 1px solid var(--err-border);
+  border-radius: var(--radius-md);
+  animation: bannerFadeIn 0.2s ease-out;
+}
+.pipeline-error-box[hidden] {
+  display: none !important;
+}
+.pipeline-error-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.8125rem;
+  color: var(--err);
+  font-weight: 500;
+  line-height: 1.45;
+  margin-bottom: 0.85rem;
+  word-break: break-word;
+}
+.pipeline-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
 }
 
 /* Integrated Deployment Result Section */

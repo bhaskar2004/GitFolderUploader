@@ -517,6 +517,8 @@ function animateNumber(el, targetVal, formatFn = v => v) {
 
 /* ---------- Live Multi-Stage Pipeline Controls ---------- */
 function setPipelineStage(stageNum, title, currentFileName, speedText, isDone = false) {
+  const overlay = $('#pipelineOverlay');
+  if (overlay) overlay.hidden = false;
   const card = $('#pipelineCard');
   if (!card) return;
   card.hidden = false;
@@ -1479,6 +1481,13 @@ $('#clear')?.addEventListener('click', () => {
   gitignoreRules = [];
   $('#gitignoreOption').hidden = true;
   $('#result').hidden = true;
+  const overlay = $('#pipelineOverlay');
+  if (overlay) overlay.hidden = true;
+  const card = $('#pipelineCard');
+  if (card) {
+    card.hidden = true;
+    card.classList.remove('pipeline-completed', 'pipeline-error');
+  }
   msg('');
   srcMsg('');
   refresh();
@@ -1591,6 +1600,38 @@ document.addEventListener('keydown', e => {
     if (modal?.open) modal.close();
     if (secModal?.open) secModal.close();
     if (shortcutsModal?.open) shortcutsModal.close();
+    const overlay = $('#pipelineOverlay');
+    if (overlay && !overlay.hidden && !busy) {
+      overlay.hidden = true;
+    }
+  }
+});
+
+// Centered Pipeline Modal Dismiss & Re-open Handlers
+$('#pipelineCloseBtn')?.addEventListener('click', () => {
+  if (busy) {
+    if (confirm('An upload is currently in progress. Cancel upload?')) {
+      cancelled = true;
+      abortCtrl?.abort();
+      showToast('Cancelling upload…', 'warn');
+    }
+  } else {
+    const overlay = $('#pipelineOverlay');
+    if (overlay) overlay.hidden = true;
+  }
+});
+
+$('#pipelineOverlay')?.addEventListener('click', (e) => {
+  if (e.target === $('#pipelineOverlay') && !busy) {
+    $('#pipelineOverlay').hidden = true;
+  }
+});
+
+$('#barMain')?.addEventListener('click', () => {
+  const overlay = $('#pipelineOverlay');
+  const card = $('#pipelineCard');
+  if (overlay && card && (!card.hidden || busy)) {
+    overlay.hidden = false;
   }
 });
 
@@ -1710,7 +1751,6 @@ async function executeUpload(overrideSecrets = false) {
   const { out } = computeCurrentManifest();
   if (!out.length) return;
 
-  $('#result').hidden = true;
   token = $('#token').value.trim();
   if (!token) return msg('Please provide your GitHub Personal Access Token in Step 1.', 'err');
 
@@ -1728,6 +1768,31 @@ async function executeUpload(overrideSecrets = false) {
 
   if (badBranch(wantBranch)) {
     return msg('Invalid branch name. Avoid spaces and characters like ~ ^ : ? * [ \\ and ".."', 'err');
+  }
+
+  // Automatically show uploading status in the middle of the screen
+  const overlay = $('#pipelineOverlay');
+  if (overlay) overlay.hidden = false;
+  const card = $('#pipelineCard');
+  if (card) {
+    card.hidden = false;
+    card.classList.remove('pipeline-completed', 'pipeline-error');
+  }
+  const errBox = $('#pipelineErrorBox');
+  if (errBox) errBox.hidden = true;
+  const upActions = $('#pipelineUploadingActions');
+  if (upActions) upActions.hidden = false;
+  $('#result').hidden = true;
+
+  const cancelBtn = $('#pipelineCancelBtn');
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      if (busy && abortCtrl) {
+        cancelled = true;
+        abortCtrl.abort();
+        showToast('Cancelling upload…', 'warn');
+      }
+    };
   }
 
   store.set('f2g.repo', create ? '' : slug);
@@ -2071,9 +2136,16 @@ async function executeUpload(overrideSecrets = false) {
       </button>
     `;
 
+    const upActions = $('#pipelineUploadingActions');
+    if (upActions) upActions.hidden = true;
+    const errBox = $('#pipelineErrorBox');
+    if (errBox) errBox.hidden = true;
+
     $('#uploadAnotherBtn').onclick = () => {
       files.clear();
       resultCard.hidden = true;
+      const overlay = $('#pipelineOverlay');
+      if (overlay) overlay.hidden = true;
       $('#pipelineCard').hidden = true;
       $('#pipelineCard').classList.remove('pipeline-completed', 'pipeline-error');
       if (pf) pf.hidden = false;
@@ -2090,24 +2162,56 @@ async function executeUpload(overrideSecrets = false) {
     fireConfetti();
     playSound('success');
   } catch (err) {
+    const upActions = $('#pipelineUploadingActions');
+    if (upActions) upActions.hidden = true;
+
     if (err.identical) {
       msg('Nothing to commit: All staged files are already identical on remote branch.', 'info');
       showToast('No new changes to commit', 'info');
+      const overlay = $('#pipelineOverlay');
+      if (overlay) overlay.hidden = true;
     } else {
       msg('Error uploading to GitHub: ' + err.message, 'err');
       showToast(err.message, 'err');
       playSound('warn');
       const card = $('#pipelineCard');
-      if (card && !card.hidden) {
+      if (card) {
         card.classList.add('pipeline-error');
         const spinner = $('#pipelineSpinner');
         if (spinner) {
           spinner.className = 'pipeline-error-badge';
           spinner.innerHTML = '<svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         }
-        $('#pipelineStatusText').textContent = 'Upload failed: ' + err.message;
+        $('#pipelineStatusText').textContent = err.cancelled ? 'Upload Cancelled' : 'Upload Failed';
         const pf = $('#pipelineFile');
-        if (pf) pf.textContent = err.message;
+        if (pf) pf.hidden = true;
+      }
+
+      // Display Retry Option inside the centered modal
+      const errBox = $('#pipelineErrorBox');
+      if (errBox) {
+        errBox.hidden = false;
+        const errText = $('#pipelineErrorText');
+        if (errText) {
+          errText.textContent = err.cancelled ? 'Upload was cancelled by user.' : (err.message || 'An error occurred during upload.');
+        }
+      }
+
+      const retryBtn = $('#pipelineRetryBtn');
+      if (retryBtn) {
+        retryBtn.onclick = () => {
+          if (errBox) errBox.hidden = true;
+          $('#pipelineCard')?.classList.remove('pipeline-error');
+          executeUpload(overrideSecrets);
+        };
+      }
+
+      const dismissBtn = $('#pipelineDismissErrorBtn');
+      if (dismissBtn) {
+        dismissBtn.onclick = () => {
+          const overlay = $('#pipelineOverlay');
+          if (overlay) overlay.hidden = true;
+        };
       }
     }
   } finally {

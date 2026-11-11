@@ -400,43 +400,70 @@
 
         <div class="status-msg" id="msg" aria-live="polite"></div>
 
-        <!-- Live Upload Pipeline Card (Unified Deployment Engine) -->
-        <div class="pipeline-card" id="pipelineCard" hidden>
-          <div class="pipeline-header">
-            <div class="pipeline-title">
-              <span class="spinner-pulse" id="pipelineSpinner"></span>
-              <span id="pipelineStatusText">Preparing upload…</span>
+        <!-- Centered Live Upload & Deployment Pipeline Modal Overlay -->
+        <div class="pipeline-overlay" id="pipelineOverlay" hidden>
+          <div class="pipeline-card pipeline-modal-box" id="pipelineCard">
+            <div class="pipeline-header">
+              <div class="pipeline-title">
+                <span class="spinner-pulse" id="pipelineSpinner"></span>
+                <span id="pipelineStatusText">Preparing upload…</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.65rem;">
+                <div class="pipeline-speed" id="pipelineSpeed">0 KB/s</div>
+                <button class="action-icon-btn" id="pipelineCloseBtn" type="button" title="Close status view" aria-label="Close modal">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
             </div>
-            <div class="pipeline-speed" id="pipelineSpeed">0 KB/s</div>
-          </div>
-          <div class="pipeline-stages">
-            <div class="pipeline-step" id="stage1">
-              <div class="stage-dot">1</div>
-              <span class="stage-label">Handshake</span>
+            <div class="pipeline-stages">
+              <div class="pipeline-step" id="stage1">
+                <div class="stage-dot">1</div>
+                <span class="stage-label">Handshake</span>
+              </div>
+              <div class="pipeline-step" id="stage2">
+                <div class="stage-dot">2</div>
+                <span class="stage-label">Blobs</span>
+              </div>
+              <div class="pipeline-step" id="stage3">
+                <div class="stage-dot">3</div>
+                <span class="stage-label">Git Tree</span>
+              </div>
+              <div class="pipeline-step" id="stage4">
+                <div class="stage-dot">4</div>
+                <span class="stage-label">Commit</span>
+              </div>
+              <div class="pipeline-step" id="stage5">
+                <div class="stage-dot">5</div>
+                <span class="stage-label">Publish</span>
+              </div>
             </div>
-            <div class="pipeline-step" id="stage2">
-              <div class="stage-dot">2</div>
-              <span class="stage-label">Blobs</span>
-            </div>
-            <div class="pipeline-step" id="stage3">
-              <div class="stage-dot">3</div>
-              <span class="stage-label">Git Tree</span>
-            </div>
-            <div class="pipeline-step" id="stage4">
-              <div class="stage-dot">4</div>
-              <span class="stage-label">Commit</span>
-            </div>
-            <div class="pipeline-step" id="stage5">
-              <div class="stage-dot">5</div>
-              <span class="stage-label">Publish</span>
-            </div>
-          </div>
-          <div class="pipeline-current-file" id="pipelineFile">Initializing Git objects…</div>
+            <div class="pipeline-current-file" id="pipelineFile">Initializing Git objects…</div>
 
-          <!-- Success Result Section (Integrated Receipt) -->
-          <div class="result-card" id="result" hidden>
-            <div class="result-meta" id="resultMeta"></div>
-            <div class="result-actions" id="resultActions"></div>
+            <!-- In-Progress Live Cancel Action -->
+            <div class="pipeline-uploading-actions" id="pipelineUploadingActions">
+              <button class="btn btn-subtle btn-sm" id="pipelineCancelBtn" type="button">Cancel Upload</button>
+            </div>
+
+            <!-- Error State with Retry Button -->
+            <div class="pipeline-error-box" id="pipelineErrorBox" hidden>
+              <div class="pipeline-error-msg">
+                <svg class="icon icon-sm" style="color:var(--err); flex-shrink:0; margin-top:0.1rem;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span id="pipelineErrorText">Upload failed</span>
+              </div>
+              <div class="pipeline-error-actions">
+                <button class="btn btn-primary btn-sm" id="pipelineRetryBtn" type="button">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                  <span>Retry Upload</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" id="pipelineDismissErrorBtn" type="button">Dismiss</button>
+              </div>
+            </div>
+
+            <!-- Success Result Section (Integrated Receipt) -->
+            <div class="result-card" id="result" hidden>
+              <div class="result-meta" id="resultMeta"></div>
+              <div class="result-actions" id="resultActions"></div>
+            </div>
           </div>
         </div>
       </section>
