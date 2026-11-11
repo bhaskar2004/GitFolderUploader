@@ -115,7 +115,7 @@ function markInteracted() {
   document.addEventListener(evt, markInteracted, { capture: true, passive: true });
 });
 
-// Micro-synthesizer audio effects (pops, chimes, alerts)
+// Tactical Cyber Audio Synthesizer (Pops, Mechanical Thuds, Railgun Arms, Alerts)
 function playSound(type) {
   if (!soundEnabled || !userInteracted) return;
   try {
@@ -128,36 +128,83 @@ function playSound(type) {
     }
 
     const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
 
     if (type === 'pop') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.05);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-      osc.start(now);
-      osc.stop(now + 0.05);
-    } else if (type === 'success') {
+      // Crisp tactical mechanical shutter / high-tech click
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(523.25, now);
-      osc.frequency.setValueAtTime(659.25, now + 0.07);
-      osc.frequency.setValueAtTime(783.99, now + 0.14);
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-      osc.start(now);
-      osc.stop(now + 0.28);
-    } else if (type === 'warn') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(220, now);
-      osc.frequency.setValueAtTime(196, now + 0.09);
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(320, now + 0.04);
       gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.22);
+      osc.stop(now + 0.04);
+    } else if (type === 'thud') {
+      // Deep sub-bass hydraulic impact for payload staging
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(95, now);
+      osc.frequency.exponentialRampToValueAtTime(32, now + 0.16);
+      gain.gain.setValueAtTime(0.24, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } else if (type === 'arm') {
+      // Power-up ascending railgun frequency ramp
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(90, now);
+      osc.frequency.exponentialRampToValueAtTime(620, now + 0.24);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.linearRampToValueAtTime(0.16, now + 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.26);
+    } else if (type === 'success') {
+      // Dual-voice cinematic cyberpunk chord
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc1.type = 'triangle';
+      osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(440, now); // A4
+      osc2.frequency.setValueAtTime(660, now); // E5 (Perfect 5th)
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.42);
+      osc2.stop(now + 0.42);
+    } else if (type === 'warn') {
+      // Dissonant dual-oscillator breach klaxon
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc1.type = 'sawtooth';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(240, now);
+      osc2.frequency.setValueAtTime(248, now); // 8Hz beating frequency
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.28);
+      osc2.stop(now + 0.28);
     }
   } catch(e) {}
 }
@@ -769,7 +816,7 @@ async function reportFiles(count, name) {
   }
   srcMsg(`Staged ${count.toLocaleString()} file${count > 1 ? 's' : ''}${name ? ' from ' + name : ''}.`);
   showToast(`Staged ${count.toLocaleString()} file${count > 1 ? 's' : ''}`, 'ok');
-  playSound('pop');
+  playSound('thud');
 
   // Auto-detect .gitignore in top-level directory
   for (const [p, f] of files) {
@@ -1450,13 +1497,13 @@ function doRefresh() {
   const barSub = $('#barSub');
 
   if (empty) {
-    barMain.textContent = 'No files staged';
-    barSub.textContent = 'Drop project folder or files in Step 3';
+    barMain.textContent = 'BUFFER IDLE // NO PAYLOAD DETECTED';
+    barSub.textContent = 'Ingest project directory or archive in Step 03 to arm commit';
     if (goBtn) goBtn.disabled = true;
     if (inlineGoBtn) inlineGoBtn.disabled = true;
   } else {
-    barMain.textContent = `${out.length.toLocaleString()} files staged (${fmt(totalBytes)})`;
-    barSub.textContent = `Ready to commit to ${slugOf() || 'destination'}`;
+    barMain.textContent = `PAYLOAD ARMED: ${out.length.toLocaleString()} FILES (${fmt(totalBytes)})`;
+    barSub.textContent = `TARGET VECTOR: ${slugOf() || 'UNRESOLVED'} // MERKLE BUFFER READY`;
     const canUpload = !!token && !!slugOf();
     if (goBtn) goBtn.disabled = !canUpload;
     if (inlineGoBtn) inlineGoBtn.disabled = !canUpload;
@@ -1730,17 +1777,17 @@ function setBusy(b) {
   if (go) {
     if (b) {
       go.disabled = true;
-      if (goText) goText.textContent = 'Uploading…';
+      if (goText) goText.textContent = 'DEPLOYING PAYLOAD…';
     } else {
-      if (goText) goText.textContent = 'Upload to GitHub';
+      if (goText) goText.textContent = 'EXECUTE COMMIT PROTOCOL';
     }
   }
   if (inlineGo) {
     if (b) {
       inlineGo.disabled = true;
-      if (inlineGoText) inlineGoText.textContent = 'Uploading…';
+      if (inlineGoText) inlineGoText.textContent = 'DEPLOYING PAYLOAD…';
     } else {
-      if (inlineGoText) inlineGoText.textContent = 'Upload to GitHub';
+      if (inlineGoText) inlineGoText.textContent = 'EXECUTE COMMIT PROTOCOL';
     }
   }
   if (!b) refresh();
@@ -1822,8 +1869,9 @@ async function executeUpload(overrideSecrets = false) {
   abortCtrl = new AbortController();
   setBusy(true);
   uploadStartTime = Date.now();
+  playSound('arm');
 
-  setPipelineStage(1, 'Handshake & Repository Verification…', 'Connecting to ' + slug + '…');
+  setPipelineStage(1, '01 // CIPHER HANDSHAKE & CLEARANCE…', 'Establishing TLS 1.3 tunnel to ' + slug);
 
   try {
     let repo;
@@ -1977,7 +2025,7 @@ async function executeUpload(overrideSecrets = false) {
         $('#barSub').textContent = `${fmt(speed)}/s • ETA: ${eta}s remaining`;
         msg(`Uploading files (${Math.round(pct)}%)…`);
 
-        setPipelineStage(2, `Uploading Blobs (${doneCount}/${uploadTargets.length})`, o.repoPath, `${fmt(speed)}/s`);
+        setPipelineStage(2, `02 // STREAMING BLOBS [${doneCount}/${uploadTargets.length}]`, o.repoPath, `${fmt(speed)}/s`);
 
         if (li) {
           li.classList.remove('uploading');
@@ -1991,7 +2039,7 @@ async function executeUpload(overrideSecrets = false) {
     if (cancelled) throw CANCELLED_ERR();
 
     msg('Constructing Git tree…');
-    setPipelineStage(3, 'Constructing Git Tree…', 'Chaining directory tree objects…');
+    setPipelineStage(3, '03 // COMPOSING MERKLE TREE…', 'Chaining directory tree objects…');
 
     const treeList = entries.slice();
     let treeSha = parentTreeSha, chunk = [], currentChunkSize = 0;
@@ -2019,7 +2067,7 @@ async function executeUpload(overrideSecrets = false) {
     await flushTreeChunk();
 
     msg('Creating Git commit object…');
-    setPipelineStage(4, 'Creating Commit…', 'Authoring single atomic Git commit…');
+    setPipelineStage(4, '04 // CRYPTOGRAPHIC COMMIT MUTATION…', 'Authoring single atomic Git commit…');
 
     const commitObj = await gh('/repos/' + slug + '/git/commits', {
       method: 'POST',
@@ -2031,7 +2079,7 @@ async function executeUpload(overrideSecrets = false) {
     });
 
     msg('Publishing commit to ' + branch + '…');
-    setPipelineStage(5, 'Publishing Commit…', 'Updating branch reference pointer…');
+    setPipelineStage(5, '05 // OVERRIDING REMOTE HEAD POINTER…', 'Overriding branch reference pointer…');
 
     let refUpdated = false;
     try {
@@ -2068,7 +2116,7 @@ async function executeUpload(overrideSecrets = false) {
     $('#prog').value = 100;
     msg(''); // Clear any floating raw text
     const elapsedSec = ((Date.now() - uploadStartTime) / 1000).toFixed(1);
-    setPipelineStage(5, 'Commit Published Successfully!', '', `✓ Done in ${elapsedSec}s`, true);
+    setPipelineStage(5, '✓ PAYLOAD DEPLOYED // COMMIT MUTATION PUBLISHED', '', `Done in ${elapsedSec}s`, true);
 
     const pf = $('#pipelineFile');
     if (pf) pf.hidden = true;
@@ -2174,8 +2222,8 @@ async function executeUpload(overrideSecrets = false) {
     };
 
     // Update bottom dock
-    $('#barMain').textContent = `Commit Published: ${commitObj.sha.slice(0, 7)}`;
-    $('#barSub').textContent = `Pushed ${uploadTargets.length} files to ${slug}@${branch}`;
+    $('#barMain').textContent = `COMMITTED: ${commitObj.sha.slice(0, 7).toUpperCase()} // HEAD UPDATED`;
+    $('#barSub').textContent = `PAYLOAD DEPLOYED: ${uploadTargets.length} FILES TO ${slug}@${branch}`;
 
     fireConfetti();
     playSound('success');

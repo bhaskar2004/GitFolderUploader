@@ -42,21 +42,26 @@
       </div>
       <div>
         <h1 class="brand-title">
-          <span>Folder to GitHub</span>
-          <span class="badge-tag">v2.4</span>
+          <span>FORGE_GIT // APEX PROTOCOL</span>
+          <span class="badge-tag live-badge"><span class="beacon-dot"></span>SYS: ARMED</span>
         </h1>
-        <p class="brand-sub">In-browser Git commit engine • 100% client-side Web Crypto &amp; Git trees</p>
+        <p class="brand-sub">HIGH-VELOCITY GIT COMMIT ENGINE • ZERO-LEAK CLIENT MERKLE ARCHITECTURE</p>
       </div>
     </div>
 
     <div class="header-actions">
+      <div class="telemetry-pill-group">
+        <span class="tele-pill"><span class="tele-dot"></span>TLS 1.3 DIRECT</span>
+        <span class="tele-pill">PARALLEL: 8x</span>
+        <span class="tele-pill">SHA-1 BUFFER</span>
+      </div>
       <button class="theme-toggle" id="shortcutsBtn" type="button" aria-label="Keyboard Shortcuts" title="Keyboard Shortcuts (?)">
         <kbd>?</kbd>
         <span>Keys</span>
       </button>
       <button class="theme-toggle" id="soundToggle" type="button" aria-label="Toggle sound feedback" title="Toggle audio cues">
         <svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-        <span>Sound</span>
+        <span>Audio</span>
       </button>
       <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme" title="Toggle color theme">
         <svg class="icon icon-sm" id="themeIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
@@ -68,31 +73,31 @@
   <!-- Interactive Pipeline Stepper -->
   <nav class="stepper-nav" aria-label="Upload pipeline stages">
     <div class="step-tab active" id="tab1" role="button" tabindex="0">
-      <span class="step-tab-num">1</span>
+      <span class="step-tab-num">01</span>
       <div>
-        <div class="step-tab-text">Authenticate</div>
+        <div class="step-tab-text">CLEARANCE</div>
         <span class="step-tab-desc">PAT credentials</span>
       </div>
     </div>
     <div class="step-tab" id="tab2" role="button" tabindex="0">
-      <span class="step-tab-num">2</span>
+      <span class="step-tab-num">02</span>
       <div>
-        <div class="step-tab-text">Target Destination</div>
+        <div class="step-tab-text">TARGET VECTOR</div>
         <span class="step-tab-desc">Repo &amp; branch</span>
       </div>
     </div>
     <div class="step-tab" id="tab3" role="button" tabindex="0">
-      <span class="step-tab-num">3</span>
+      <span class="step-tab-num">03</span>
       <div>
-        <div class="step-tab-text">Source Content</div>
+        <div class="step-tab-text">INGESTION</div>
         <span class="step-tab-desc">Folder, files, ZIP</span>
       </div>
     </div>
     <div class="step-tab" id="tab4" role="button" tabindex="0">
-      <span class="step-tab-num">4</span>
+      <span class="step-tab-num">04</span>
       <div>
-        <div class="step-tab-text">Review &amp; Push</div>
-        <span class="step-tab-desc">Diff &amp; commit</span>
+        <div class="step-tab-text">EXECUTE COMMIT</div>
+        <span class="step-tab-desc">Merkle diff &amp; push</span>
       </div>
     </div>
   </nav>
@@ -103,10 +108,10 @@
       <!-- Step 1: Connect GitHub -->
       <section class="step-card" aria-labelledby="step1-title">
         <div class="step-card-header">
-          <div class="step-badge">1</div>
+          <div class="step-badge">01</div>
           <div>
-            <h2 class="step-title" id="step1-title">Connect GitHub</h2>
-            <p>Direct browser-to-GitHub communication via HTTPS. Tokens never leave client RAM.</p>
+            <h2 class="step-title" id="step1-title">01 // ACCESS CLEARANCE</h2>
+            <p>Direct browser-to-GitHub encrypted tunnel. Zero-trust: tokens stay in volatile client RAM.</p>
           </div>
         </div>
 
@@ -149,10 +154,10 @@
       <!-- Step 2: Target Destination -->
       <section class="step-card" aria-labelledby="step2-title">
         <div class="step-card-header">
-          <div class="step-badge">2</div>
+          <div class="step-badge">02</div>
           <div>
-            <h2 class="step-title" id="step2-title">Target Destination</h2>
-            <p>Select an existing repository, specify a branch, or provision a fresh repo.</p>
+            <h2 class="step-title" id="step2-title">02 // REPOSITORY TARGET &amp; VECTOR</h2>
+            <p>Declare destination repository namespace, target branch directive, or provision a new remote.</p>
           </div>
         </div>
 
@@ -169,7 +174,7 @@
         </div>
 
         <div class="field">
-          <label for="repo" class="field-label" id="repoLabel">Repository</label>
+          <label for="repo" class="field-label" id="repoLabel">Repository Vector</label>
           <input id="repo" type="text" list="repos" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/repo or paste GitHub URL">
           <datalist id="repos"></datalist>
           <datalist id="branches"></datalist>
@@ -178,13 +183,13 @@
 
         <div class="form-row">
           <div class="field">
-            <label for="branch" class="field-label">Target Branch</label>
+            <label for="branch" class="field-label">Target Branch Vector</label>
             <input id="branch" type="text" list="branches" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Default branch">
             <span class="hint-text">Leave blank for default (main/master).</span>
           </div>
 
           <div class="field">
-            <label for="prefix" class="field-label">Subfolder Prefix</label>
+            <label for="prefix" class="field-label">Root Subfolder Prefix</label>
             <input id="prefix" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Repository root">
             <div class="chips-row">
               <button class="chip" type="button" data-prefix="">/</button>
@@ -196,16 +201,16 @@
         </div>
 
         <div class="field">
-          <label for="commit" class="field-label">Commit Summary</label>
+          <label for="commit" class="field-label">Commit Summary Directive</label>
           <input id="commit" type="text" value="Upload files via Folder to GitHub">
         </div>
 
         <div class="field">
           <label for="commitDesc" class="field-label">
-            <span>Commit Description (Optional)</span>
-            <span class="label-aside">Extended commit message body</span>
+            <span>Extended Commit Directive (Optional)</span>
+            <span class="label-aside">Multiline commit message body</span>
           </label>
-          <textarea id="commitDesc" placeholder="Optional extended release notes or commit details…"></textarea>
+          <textarea id="commitDesc" placeholder="Optional extended release notes or technical commit details…"></textarea>
         </div>
       </section>
     </div>
@@ -215,10 +220,10 @@
       <!-- Step 3: Choose Content -->
       <section class="step-card" aria-labelledby="step3-title">
         <div class="step-card-header">
-          <div class="step-badge">3</div>
+          <div class="step-badge">03</div>
           <div>
-            <h2 class="step-title" id="step3-title">Choose Content</h2>
-            <p>Drop folders, select individual files, or extract compressed ZIP archives.</p>
+            <h2 class="step-title" id="step3-title">03 // PAYLOAD INGESTION BUFFER</h2>
+            <p>Ingest project directories, loose binaries, or raw compressed archives into volatile memory.</p>
           </div>
         </div>
 
@@ -226,21 +231,21 @@
           <div class="drop-icon-wrap">
             <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
           </div>
-          <p class="drop-title" id="dropTitle">Drop a project folder or ZIP archive here</p>
-          <p class="drop-subtitle" id="dropHint">Or use the high-speed selection buttons below. Successive drops will merge files.</p>
+          <p class="drop-title" id="dropTitle">DROP DIRECTORY PAYLOAD OR ARCHIVE HERE</p>
+          <p class="drop-subtitle" id="dropHint">HIGH-SPEED VIRTUAL BUFFER ARMED // SUCCESSIVE DROPS MERGE INTO CURRENT MERKLE TREE</p>
           
           <div class="source-buttons">
             <button class="btn btn-source btn-primary" type="button" id="bFolder" title="Shortcut: ⌘O / Ctrl+O">
               <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-              <span>Select Folder</span>
+              <span>SELECT FOLDER DIRECTORY</span>
             </button>
             <button class="btn btn-source btn-secondary" type="button" id="bFiles">
               <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              <span>Pick Files</span>
+              <span>PICK RAW FILES</span>
             </button>
             <button class="btn btn-source btn-secondary" type="button" id="bZip">
               <svg class="icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-              <span>Extract ZIP</span>
+              <span>UNPACK ZIP ARCHIVE</span>
             </button>
           </div>
           <p class="source-feedback" id="srcMsg" aria-live="polite"></p>
@@ -289,17 +294,17 @@
       <!-- Step 4: Review Manifest -->
       <section class="step-card" aria-labelledby="step4-title">
         <div class="step-card-header">
-          <div class="step-badge">4</div>
+          <div class="step-badge">04</div>
           <div>
-            <h2 class="step-title" id="step4-title">Review Manifest</h2>
-            <p>Inspect staged files, verify Git SHA diffs, and push to GitHub.</p>
+            <h2 class="step-title" id="step4-title">04 // CRYPTOGRAPHIC MANIFEST &amp; TELEMETRY</h2>
+            <p>Inspect staged files, verify Git SHA diffs, and execute commit deployment.</p>
           </div>
         </div>
 
         <div id="emptyReview" style="padding:2.5rem 1rem; text-align:center; color:var(--muted);">
           <svg class="icon icon-lg" style="margin-bottom:0.75rem; color:var(--subtle); width:2.25rem; height:2.25rem;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p style="margin:0; font-weight:600; color:var(--ink-secondary);">No files staged yet.</p>
-          <span style="font-size:0.78125rem;">Drop a project folder or select files in Step 3 to build your commit manifest.</span>
+          <p style="margin:0; font-weight:600; color:var(--ink-secondary);">BUFFER IDLE // NO PAYLOAD DETECTED</p>
+          <span style="font-size:0.78125rem;">Drop a project folder or unpack an archive in Step 03 to build your commit manifest.</span>
         </div>
 
         <div id="filledReview" hidden>
@@ -317,15 +322,15 @@
             <div class="stats-group">
               <div class="stat-item">
                 <span class="stat-val" id="cnt">0</span>
-                <span class="stat-lbl">Files</span>
+                <span class="stat-lbl">PAYLOAD FILES</span>
               </div>
               <div class="stat-item">
                 <span class="stat-val" id="size">0 KB</span>
-                <span class="stat-lbl">Total Size</span>
+                <span class="stat-lbl">TOTAL WEIGHT</span>
               </div>
               <div class="stat-item">
                 <span class="stat-val" id="apiEst">0</span>
-                <span class="stat-lbl">Est. API Blobs</span>
+                <span class="stat-lbl">EST. MERKLE BLOBS</span>
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
@@ -335,11 +340,11 @@
               </button>
               <button class="btn btn-sm btn-subtle" id="clear" type="button">
                 <svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                <span>Clear</span>
+                <span>Flush</span>
               </button>
               <button class="btn btn-primary main-upload-btn" id="inlineGo" type="button" disabled title="Shortcut: ⌘↵ / Ctrl+Enter">
                 <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span id="inlineGoText">Upload to GitHub</span>
+                <span id="inlineGoText">EXECUTE COMMIT PROTOCOL</span>
                 <kbd class="btn-kbd">⌘↵</kbd>
               </button>
             </div>
@@ -411,7 +416,7 @@
             <div class="pipeline-header">
               <div class="pipeline-title">
                 <span class="spinner-pulse" id="pipelineSpinner"></span>
-                <span id="pipelineStatusText">Preparing upload…</span>
+                <span id="pipelineStatusText">INITIALIZING TRANSMISSION SEQUENCE…</span>
               </div>
               <div style="display:flex; align-items:center; gap:0.65rem;">
                 <div class="pipeline-speed" id="pipelineSpeed">0 KB/s</div>
@@ -422,45 +427,45 @@
             </div>
             <div class="pipeline-stages">
               <div class="pipeline-step" id="stage1">
-                <div class="stage-dot">1</div>
-                <span class="stage-label">Handshake</span>
+                <div class="stage-dot">01</div>
+                <span class="stage-label">CIPHER</span>
               </div>
               <div class="pipeline-step" id="stage2">
-                <div class="stage-dot">2</div>
-                <span class="stage-label">Blobs</span>
+                <div class="stage-dot">02</div>
+                <span class="stage-label">BLOBS</span>
               </div>
               <div class="pipeline-step" id="stage3">
-                <div class="stage-dot">3</div>
-                <span class="stage-label">Git Tree</span>
+                <div class="stage-dot">03</div>
+                <span class="stage-label">TREE</span>
               </div>
               <div class="pipeline-step" id="stage4">
-                <div class="stage-dot">4</div>
-                <span class="stage-label">Commit</span>
+                <div class="stage-dot">04</div>
+                <span class="stage-label">COMMIT</span>
               </div>
               <div class="pipeline-step" id="stage5">
-                <div class="stage-dot">5</div>
-                <span class="stage-label">Publish</span>
+                <div class="stage-dot">05</div>
+                <span class="stage-label">PUBLISH</span>
               </div>
             </div>
             <div class="pipeline-current-file" id="pipelineFile">Initializing Git objects…</div>
 
             <!-- In-Progress Live Cancel Action -->
             <div class="pipeline-uploading-actions" id="pipelineUploadingActions">
-              <button class="btn btn-subtle btn-sm" id="pipelineCancelBtn" type="button">Cancel Upload</button>
+              <button class="btn btn-subtle btn-sm" id="pipelineCancelBtn" type="button">ABORT TRANSMISSION</button>
             </div>
 
             <!-- Error State with Retry Button -->
             <div class="pipeline-error-box" id="pipelineErrorBox" hidden>
               <div class="pipeline-error-msg">
                 <svg class="icon icon-sm" style="color:var(--err); flex-shrink:0; margin-top:0.1rem;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span id="pipelineErrorText">Upload failed</span>
+                <span id="pipelineErrorText">TRANSMISSION OVERRIDE REJECTED</span>
               </div>
               <div class="pipeline-error-actions">
                 <button class="btn btn-primary btn-sm" id="pipelineRetryBtn" type="button">
                   <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-                  <span>Retry Upload</span>
+                  <span>FORCE RETRY OVERRIDE</span>
                 </button>
-                <button class="btn btn-secondary btn-sm" id="pipelineDismissErrorBtn" type="button">Dismiss</button>
+                <button class="btn btn-secondary btn-sm" id="pipelineDismissErrorBtn" type="button">DISMISS ALERT</button>
               </div>
             </div>
 
@@ -481,13 +486,13 @@
   <progress class="upload-progress" id="prog" value="0" max="100"></progress>
   <div class="dock-inner">
     <div class="dock-summary">
-      <div class="dock-primary-text" id="barMain">No files selected</div>
-      <div class="dock-secondary-text" id="barSub">Complete steps 1, 2, and 3 to begin upload</div>
+      <div class="dock-primary-text" id="barMain">BUFFER IDLE // NO PAYLOAD DETECTED</div>
+      <div class="dock-secondary-text" id="barSub">Ingest project directory or archive in Step 03 to arm commit</div>
     </div>
     <div class="dock-actions">
       <button class="btn btn-primary" id="go" type="button" disabled title="Shortcut: ⌘↵ / Ctrl+Enter">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span id="goText">Upload to GitHub</span>
+        <span id="goText">EXECUTE COMMIT PROTOCOL</span>
       </button>
     </div>
   </div>
