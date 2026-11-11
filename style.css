@@ -1622,28 +1622,35 @@ textarea {
   font-size: 0.8125rem;
 }
 
-/* Sticky Action Dock */
+/* Centered Floating Action Dock (Highly accessible, centered in view) */
 .action-dock {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(940px, calc(100vw - 2.5rem));
   background: var(--surface);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.05);
   z-index: 50;
-  padding: 0.75rem 1.75rem;
+  padding: 0.85rem 1.45rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 }
 .upload-progress {
   position: absolute;
-  top: -3px;
-  left: 0;
-  right: 0;
-  width: 100%;
+  top: -2px;
+  left: 1rem;
+  right: 1rem;
+  width: calc(100% - 2rem);
   height: 3px;
   border: none;
   background: transparent;
   accent-color: var(--accent);
+  border-radius: 9999px;
+  overflow: hidden;
 }
 .upload-progress::-webkit-progress-bar {
   background: transparent;
@@ -1654,8 +1661,6 @@ textarea {
 }
 .dock-inner {
   width: 100%;
-  max-width: 100%;
-  margin: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1663,6 +1668,41 @@ textarea {
 }
 .dock-summary {
   min-width: 0;
+  cursor: pointer;
+}
+.dock-actions .btn-primary {
+  padding: 0.65rem 1.45rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(36, 70, 240, 0.35);
+  letter-spacing: -0.01em;
+}
+.dock-actions .btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(36, 70, 240, 0.45);
+}
+
+/* Inline Upload Button in Step 4 */
+.main-upload-btn {
+  padding: 0.42rem 0.95rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(36, 70, 240, 0.28);
+  letter-spacing: -0.01em;
+}
+.main-upload-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(36, 70, 240, 0.4);
+}
+.btn-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  border-radius: var(--radius-xs);
+  margin-left: 0.25rem;
+  font-weight: 600;
 }
 .dock-primary-text {
   font-size: 0.84rem;
@@ -1854,8 +1894,23 @@ kbd {
   .step-tab {
     padding: 0.5rem 0.65rem;
   }
-  .form-row {
-    grid-template-columns: 1fr;
+  .action-dock {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 0.75rem 1rem;
+  }
+  .upload-progress {
+    left: 0;
+    right: 0;
+    width: 100%;
+    border-radius: 0;
   }
   .dock-inner {
     flex-direction: column;

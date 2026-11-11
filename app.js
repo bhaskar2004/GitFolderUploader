@@ -1443,19 +1443,23 @@ function doRefresh() {
   // Render Manifest rows
   renderManifestRows();
 
-  // Bottom action dock update
+  // Bottom action dock update & Inline Review Upload button
   const goBtn = $('#go');
+  const inlineGoBtn = $('#inlineGo');
   const barMain = $('#barMain');
   const barSub = $('#barSub');
 
   if (empty) {
     barMain.textContent = 'No files staged';
     barSub.textContent = 'Drop project folder or files in Step 3';
-    goBtn.disabled = true;
+    if (goBtn) goBtn.disabled = true;
+    if (inlineGoBtn) inlineGoBtn.disabled = true;
   } else {
     barMain.textContent = `${out.length.toLocaleString()} files staged (${fmt(totalBytes)})`;
     barSub.textContent = `Ready to commit to ${slugOf() || 'destination'}`;
-    goBtn.disabled = !token || !slugOf();
+    const canUpload = !!token && !!slugOf();
+    if (goBtn) goBtn.disabled = !canUpload;
+    if (inlineGoBtn) inlineGoBtn.disabled = !canUpload;
   }
 
   // Warnings / Hints
@@ -1720,18 +1724,29 @@ function setBusy(b) {
   busy = b;
   const go = $('#go');
   const goText = $('#goText');
+  const inlineGo = $('#inlineGo');
+  const inlineGoText = $('#inlineGoText');
+
   if (go) {
     if (b) {
       go.disabled = true;
-      goText.textContent = 'Uploading…';
+      if (goText) goText.textContent = 'Uploading…';
     } else {
-      goText.textContent = 'Upload to GitHub';
-      refresh();
+      if (goText) goText.textContent = 'Upload to GitHub';
     }
   }
+  if (inlineGo) {
+    if (b) {
+      inlineGo.disabled = true;
+      if (inlineGoText) inlineGoText.textContent = 'Uploading…';
+    } else {
+      if (inlineGoText) inlineGoText.textContent = 'Upload to GitHub';
+    }
+  }
+  if (!b) refresh();
 }
 
-$('#go').onclick = () => {
+function triggerUpload() {
   if (busy) return;
   const { out } = computeCurrentManifest();
   if (!out.length) return;
@@ -1745,7 +1760,10 @@ $('#go').onclick = () => {
   }
 
   executeUpload(false);
-};
+}
+
+$('#go')?.addEventListener('click', triggerUpload);
+$('#inlineGo')?.addEventListener('click', triggerUpload);
 
 async function executeUpload(overrideSecrets = false) {
   const { out } = computeCurrentManifest();
