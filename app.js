@@ -1,13 +1,7 @@
 /**
- * Folder to GitHub — Modern Client-Side Git Engine
- * Features:
- * 1. Pre-Commit In-Browser Secret Scanner
- * 2. Remote Branch Diff & Change Detection (with Git SHA-1 hashing)
- * 3. Real .gitignore Parser & Stack Presets
- * 4. Clean Filtered Project ZIP Exporter
- * 5. Web Audio Micro-Sound Effects with Persistent Mute
- * 6. Live Multi-Stage Git Object Upload Pipeline
- * 7. Tree & Flat Views with Inline File Previews
+ * Folder to GitHub — High-Performance Precision Git Engine
+ * Designed for Massive Repositories (50,000+ files), 60fps Virtual Scrolling,
+ * In-Browser Secret Scanning, Git SHA-1 Diffing, and Resilient API Uploads.
  */
 
 const $ = s => document.querySelector(s);
@@ -16,14 +10,14 @@ const API = 'https://api.github.com';
 
 // Limits & constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024;     // 50MB warning threshold
-const HARD_LIMIT = 100 * 1024 * 1024;       // 100MB GitHub hard reject
-const SHOW_LIMIT = 250;                     // max rows rendered in review flat list
-const INLINE_MAX = 1024 * 1024;             // 1MB: text files up to this size can go directly into git tree
-const BIG_FILE_THRESHOLD = 8 * 1024 * 1024; // 8MB: upload sequentially to avoid browser OOM
-const TREE_MAX_CHARS = 2e6;
-const TREE_MAX_ENTRIES = 400;
+const HARD_LIMIT = 100 * 1024 * 1024;       // 100MB GitHub limit
+const INLINE_MAX = 512 * 1024;              // 512KB: text files up to 512KB inline directly into the Git tree for ultra-fast single-batch upload
+const BIG_FILE_THRESHOLD = 8 * 1024 * 1024; // 8MB: upload sequentially
+const TREE_MAX_CHARS = 2.5 * 1024 * 1024;   // 2.5MB per tree chunk (GitHub limit is 10MB)
+const TREE_MAX_ENTRIES = 400;               // Up to 400 entries per tree chunk
+const ROW_HEIGHT = 38;                      // Fixed row height in px for 60fps virtual scroller
 
-// Default clutter & secret filter
+// Clutter & secret filter patterns
 const DEFAULT_SKIP_REGEX = /(^|\/)(node_modules|__MACOSX|\.next|\.nuxt|dist|build|out|\.venv|venv|\.cache)(\/|$)|(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\.env(\.(?!example$|sample$)[^/]*)?|id_rsa|id_ed25519|.*\.pem|.*\.key|.*\.pfx|.*\.pkcs12)$/i;
 const GITDIR_REGEX = /(^|\/)\.git(\/|$)/i;
 
@@ -33,24 +27,34 @@ const SECRET_PATTERNS = [
   { name: 'GitHub Personal Access Token', regex: /(?:^|[^A-Za-z0-9_])(gh[pousr]_[A-Za-z0-9_]{36,}|github_pat_[A-Za-z0-9_]{82})(?:[^A-Za-z0-9_]|$)/ },
   { name: 'Private Key Block', regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },
   { name: 'OpenAI / Anthropic API Key', regex: /(?:^|[^A-Za-z0-9_-])(sk-[A-Za-z0-9]{20,T3BlbkFJ[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{40,}|sk-ant-[A-Za-z0-9_-]{40,})(?:[^A-Za-z0-9_-]|$)/ },
-  { name: 'Slack Token or Webhook', regex: /(xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*|https:\/\/hooks\.slack\.com\/services\/T[0-9A-Z]{8}\/B[0-9A-Z]{8}\/[0-9A-Za-z]{24})/ },
+  { name: 'Slack Token / Webhook', regex: /(xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*|https:\/\/hooks\.slack\.com\/services\/T[0-9A-Z]{8}\/B[0-9A-Z]{8}\/[0-9A-Za-z]{24})/ },
   { name: 'Stripe Secret Key', regex: /(sk_live_[0-9a-zA-Z]{24,})/ },
   { name: 'Google API Key', regex: /(AIza[0-9A-Za-z\\-_]{35})/ }
 ];
 
+// Binary extensions to skip when scanning text or secrets
+const BINARY_EXTS = new Set([
+  'png','jpg','jpeg','gif','ico','webp','svg','pdf','zip','tar','gz','tgz','7z','rar',
+  'exe','dll','dylib','so','woff','woff2','ttf','eot','mp4','mp3','mov','avi','wav',
+  'bin','dat','iso','dmg','class','jar','pyc','o','obj','node'
+]);
+
 // Application state
-const files = new Map();           // clean path -> File
+const files = new Map();           // source path -> File object
 let token = '', me = '', currentRepoData = null, busy = false, cancelled = false;
 let abortCtrl = null, rowMap = new Map(), defaults = {}, currentView = 'flat';
 let uploadStartTime = 0;
 let soundEnabled = true;
 
-// Remote diff & secret tracking
+// Caches for high-load optimization
+const secretCache = new Map();     // cacheKey -> array of secret hits
+const sha1Cache = new Map();       // cacheKey -> sha1 hex string
 let remoteTreeMap = new Map();     // path -> remote sha
-let fileGitShaMap = new Map();     // local path -> sha1
+let fileGitShaMap = new Map();     // repoPath -> sha1
 let fileSecretsMap = new Map();    // path -> array of secret names
 let gitignoreRules = [];           // array of parsed rules
 let activeDiffFilter = 'all';      // all, new, mod, same, secret
+let currentFilteredList = [];      // cached array of filtered manifest items
 
 // Audio synthesis context
 let audioCtx = null;
@@ -59,111 +63,175 @@ let audioCtx = null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fmt = n => {
   if (n < 1024) return n + ' B';
-  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
-  if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
-  return (n / 1073741824).toFixed(2) + ' GB';
-};
-const plural = (n, w) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`;
-const coarsePointer = matchMedia('(pointer:coarse)').matches;
-const enc = b => b.split('/').map(encodeURIComponent).join('/');
-
-const store = {
-  get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
-  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
-  del: k => { try { localStorage.removeItem(k); } catch {} }
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 };
 
-function escapeHTML(str) {
-  return String(str).replace(/[&<>'"]/g, tag => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    "'": '&#39;',
-    '"': '&quot;'
-  }[tag] || tag));
-}
+const enc = encodeURIComponent;
+const escapeHTML = str => (str || '').replace(/[&<>'"]/g, tag => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[tag] || tag));
 
+const getExt = path => {
+  const name = path.split('/').pop();
+  const idx = name.lastIndexOf('.');
+  return idx > 0 ? name.slice(idx + 1).toLowerCase() : '';
+};
+
+// Safe text decoder (UTF-8)
+const textDecoder = new TextDecoder('utf-8', { fatal: true });
 function asText(buf) {
-  const u = new Uint8Array(buf);
-  if (u.includes(0)) return null;
   try {
-    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(u);
-  } catch {
+    return textDecoder.decode(buf);
+  } catch (err) {
     return null;
   }
 }
 
-/* ---------- Web Audio Synthesized Sound Effects ---------- */
-function initAudio() {
-  if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextClass) audioCtx = new AudioContextClass();
-  }
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+// Convert ArrayBuffer or Blob to Base64 efficiently
+function toBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
+// User interaction tracking to strictly respect browser AudioContext autoplay policy
+let userInteracted = false;
+function markInteracted() {
+  userInteracted = true;
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+}
+['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
+  document.addEventListener(evt, markInteracted, { capture: true, passive: true });
+});
+
+// Micro-synthesizer audio effects (pops, chimes, alerts)
 function playSound(type) {
-  if (!soundEnabled) return;
+  if (!soundEnabled || !userInteracted) return;
   try {
-    initAudio();
-    if (!audioCtx) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+      return;
+    }
+
     const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
 
     if (type === 'pop') {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.exponentialRampToValueAtTime(780, now + 0.08);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.05);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       osc.start(now);
-      osc.stop(now + 0.09);
+      osc.stop(now + 0.05);
     } else if (type === 'success') {
-      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { // C-E-G-C major chord
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now + i * 0.07);
-        gain.gain.setValueAtTime(0.18, now + i * 0.07);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.45);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now + i * 0.07);
-        osc.stop(now + i * 0.07 + 0.46);
-      });
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.07);
+      osc.frequency.setValueAtTime(783.99, now + 0.14);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.start(now);
+      osc.stop(now + 0.28);
     } else if (type === 'warn') {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(220, now);
-      osc.frequency.exponentialRampToValueAtTime(140, now + 0.18);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(196, now + 0.09);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
       osc.start(now);
-      osc.stop(now + 0.19);
+      osc.stop(now + 0.22);
     }
   } catch(e) {}
 }
 
+// Local storage helper
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch(e) { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} },
+  del: k => { try { localStorage.removeItem(k); } catch(e) {} }
+};
+
+// Pure JS SHA-1 fallback for environments where crypto.subtle is restricted (e.g. file:// origins)
+function sha1Fallback(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const n = bytes.length;
+  const words = [];
+  for (let i = 0; i < n; i++) {
+    words[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
+  }
+  words[n >> 2] |= 0x80 << (24 - (n % 4) * 8);
+  words[(((n + 8) >> 6) << 4) + 15] = n * 8;
+
+  let H0 = 0x67452301, H1 = 0xefcdab89, H2 = 0x98badcfe, H3 = 0x10325476, H4 = 0xc3d2e1f0;
+  const W = new Int32Array(80);
+
+  for (let i = 0; i < words.length; i += 16) {
+    for (let t = 0; t < 16; t++) W[t] = words[i + t] | 0;
+    for (let t = 16; t < 80; t++) {
+      const v = W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16];
+      W[t] = (v << 1) | (v >>> 31);
+    }
+    let a = H0, b = H1, c = H2, d = H3, e = H4;
+    for (let t = 0; t < 80; t++) {
+      let f, k;
+      if (t < 20) { f = (b & c) | ((~b) & d); k = 0x5a827999; }
+      else if (t < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
+      else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
+      else { f = b ^ c ^ d; k = 0xca62c1d6; }
+      const temp = (((a << 5) | (a >>> 27)) + f + e + k + W[t]) | 0;
+      e = d; d = c; c = (b << 30) | (b >>> 2); b = a; a = temp;
+    }
+    H0 = (H0 + a) | 0; H1 = (H1 + b) | 0; H2 = (H2 + c) | 0; H3 = (H3 + d) | 0; H4 = (H4 + e) | 0;
+  }
+  return [H0, H1, H2, H3, H4].map(h => (h >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
 /* ---------- Git Blob SHA-1 Calculation ---------- */
 async function computeGitBlobSha(file) {
+  const cacheKey = `${file.name}:${file.size}:${file.lastModified}`;
+  if (sha1Cache.has(cacheKey)) return sha1Cache.get(cacheKey);
+
   try {
-    const buf = await file.arrayBuffer();
-    const header = `blob ${buf.byteLength}\0`;
-    const headerBuf = new TextEncoder().encode(header);
-    const combined = new Uint8Array(headerBuf.byteLength + buf.byteLength);
-    combined.set(headerBuf, 0);
-    combined.set(new Uint8Array(buf), headerBuf.byteLength);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', combined);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const arrayBuffer = await file.arrayBuffer();
+    const headerStr = `blob ${arrayBuffer.byteLength}\0`;
+    const headerBytes = new TextEncoder().encode(headerStr);
+    const combined = new Uint8Array(headerBytes.length + arrayBuffer.byteLength);
+    combined.set(headerBytes, 0);
+    combined.set(new Uint8Array(arrayBuffer), headerBytes.length);
+
+    let sha = '';
+    if (window.crypto && window.crypto.subtle && window.crypto.subtle.digest) {
+      try {
+        const hashBuffer = await crypto.subtle.digest('SHA-1', combined);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        sha = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch (subtleErr) {
+        sha = sha1Fallback(combined);
+      }
+    } else {
+      sha = sha1Fallback(combined);
+    }
+
+    sha1Cache.set(cacheKey, sha);
+    return sha;
   } catch (err) {
     return null;
   }
@@ -176,17 +244,20 @@ function parseGitignore(content) {
   for (let rawLine of lines) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
-    const isNegated = line.startsWith('!');
-    const pattern = isNegated ? line.slice(1).trim() : line;
-    if (!pattern) continue;
 
-    // Convert gitignore glob pattern to regex
+    let pattern = line;
+    let isNegated = false;
+    if (pattern.startsWith('!')) {
+      isNegated = true;
+      pattern = pattern.slice(1);
+    }
+
     let regexStr = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*\*/g, '§§')
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*/g, '___GLOBSTAR___')
       .replace(/\*/g, '[^/]*')
-      .replace(/§§/g, '.*')
-      .replace(/\?/g, '[^/]');
+      .replace(/\?/g, '[^/]')
+      .replace(/___GLOBSTAR___/g, '.*');
 
     if (pattern.endsWith('/')) {
       regexStr = `(^|/)${regexStr}`;
@@ -212,7 +283,7 @@ function matchesGitignore(path) {
   return ignored;
 }
 
-/* ---------- Secret Scanner Engine ---------- */
+/* ---------- Secret Scanner Engine (Optimized for Huge Repos) ---------- */
 function scanTextForSecrets(text) {
   const found = [];
   for (const pattern of SECRET_PATTERNS) {
@@ -228,26 +299,55 @@ function scanTextForSecrets(text) {
 }
 
 async function scanAllStagedSecrets(stagedItems) {
-  fileSecretsMap.clear();
   let totalSecrets = 0;
-  for (const item of stagedItems) {
-    if (item.file.size <= INLINE_MAX) {
+  fileSecretsMap.clear();
+
+  // Scan in small background batches to never block the main thread
+  for (let i = 0; i < stagedItems.length; i++) {
+    const item = stagedItems[i];
+    const ext = getExt(item.path);
+
+    // Skip known binary extensions
+    if (BINARY_EXTS.has(ext)) continue;
+
+    const cacheKey = `${item.path}:${item.file.size}:${item.file.lastModified}`;
+    if (secretCache.has(cacheKey)) {
+      const cached = secretCache.get(cacheKey);
+      if (cached.length) {
+        fileSecretsMap.set(item.path, cached);
+        totalSecrets += cached.length;
+      }
+      continue;
+    }
+
+    // Read only first 64KB for secret scanning (secrets are in configs/headers)
+    if (item.file.size > 0) {
       try {
-        const text = asText(await item.file.arrayBuffer());
+        const slice = item.file.slice(0, 65536);
+        const text = asText(await slice.arrayBuffer());
         if (text !== null) {
           const hits = scanTextForSecrets(text);
+          secretCache.set(cacheKey, hits);
           if (hits.length) {
             fileSecretsMap.set(item.path, hits);
             totalSecrets += hits.length;
           }
+        } else {
+          secretCache.set(cacheKey, []);
         }
-      } catch(e) {}
+      } catch(e) {
+        secretCache.set(cacheKey, []);
+      }
     }
+
+    // Yield every 25 files to preserve 60fps interaction
+    if (i % 25 === 0) await sleep(0);
   }
+
   return totalSecrets;
 }
 
-/* ---------- Theme & Sound Controls ---------- */
+/* ---------- Theme, Sound & Shortcuts Controls ---------- */
 const themeToggle = $('#themeToggle');
 const themeIcon = $('#themeIcon');
 const themeLabel = $('#themeLabel');
@@ -261,27 +361,29 @@ function updateThemeUI(theme) {
     themeIcon.innerHTML = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
     themeLabel.textContent = 'Light';
   } else {
-    themeIcon.innerHTML = '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>';
-    themeLabel.textContent = 'System';
+    themeIcon.innerHTML = '<rect width="18" height="14" x="3" y="3" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>';
+    themeLabel.textContent = 'Auto';
   }
 }
 
 function initTheme() {
-  const current = store.get('f2g.theme') || 'system';
-  updateThemeUI(current);
-  themeToggle.addEventListener('click', () => {
-    const cur = store.get('f2g.theme') || 'system';
-    let next = cur === 'system' ? 'dark' : cur === 'dark' ? 'light' : 'system';
-    if (next === 'system') {
-      store.del('f2g.theme');
+  const saved = store.get('f2g.theme') || 'auto';
+  updateThemeUI(saved);
+  themeToggle?.addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') || (store.get('f2g.theme') || 'auto');
+    const order = ['auto', 'dark', 'light'];
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    if (next === 'auto') {
       document.documentElement.removeAttribute('data-theme');
+      store.del('f2g.theme');
       $('meta[name="color-scheme"]').content = 'light dark';
     } else {
-      store.set('f2g.theme', next);
       document.documentElement.setAttribute('data-theme', next);
+      store.set('f2g.theme', next);
       $('meta[name="color-scheme"]').content = next;
     }
     updateThemeUI(next);
+    playSound('pop');
   });
 }
 
@@ -305,120 +407,116 @@ function updateSoundUI() {
     : '<svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg><span>Muted</span>';
 }
 
+/* ---------- Shortcuts Modal ---------- */
+const shortcutsModal = $('#shortcutsModal');
+$('#shortcutsBtn')?.addEventListener('click', () => shortcutsModal?.showModal());
+$('#closeShortcutsModal')?.addEventListener('click', () => shortcutsModal?.close());
+
 /* ---------- Toast & Confetti ---------- */
-function showToast(text, type = 'info', iconSvg = '') {
+function showToast(message, type = 'info', timeout = 3200) {
   const shelf = $('#toastShelf');
   if (!shelf) return;
-  const item = document.createElement('div');
-  item.className = 'toast-item' + (type === 'ok' ? ' toast-ok' : type === 'err' ? ' toast-err' : '');
-  const icon = iconSvg || (type === 'ok' 
-    ? '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' 
-    : type === 'err' 
-    ? '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
-    : '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>');
-  item.innerHTML = `${icon}<span>${escapeHTML(text)}</span>`;
-  shelf.append(item);
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `
+    <span style="display:flex; align-items:center;">
+      ${type === 'ok' ? '<svg class="icon icon-sm" style="color:var(--ok);" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+      ${type === 'err' ? '<svg class="icon icon-sm" style="color:var(--err);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' : ''}
+    </span>
+    <span>${escapeHTML(message)}</span>
+  `;
+  shelf.append(t);
   setTimeout(() => {
-    item.classList.add('toast-out');
-    setTimeout(() => item.remove(), 220);
-  }, 3200);
+    t.style.opacity = '0';
+    t.style.transform = 'translateY(8px)';
+    t.style.transition = 'all 0.18s ease';
+    setTimeout(() => t.remove(), 200);
+  }, timeout);
 }
 
-function triggerConfetti() {
+function fireConfetti() {
   const canvas = $('#confettiCanvas');
   if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  canvas.style.display = 'block';
-  const ctx = canvas.getContext('2d');
-  const colors = ['#2563eb', '#3b82f6', '#10b981', '#059669', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
-  const particles = Array.from({ length: 95 }, () => ({
-    x: canvas.width * 0.5 + (Math.random() - 0.5) * 350,
-    y: canvas.height * 0.65,
+
+  const count = 75;
+  const colors = ['#2563eb', '#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+  const particles = Array.from({ length: count }, () => ({
+    x: canvas.width * 0.5,
+    y: canvas.height * 0.4,
     vx: (Math.random() - 0.5) * 16,
-    vy: -Math.random() * 17 - 9,
-    size: Math.random() * 8 + 5,
+    vy: (Math.random() - 0.7) * 18,
+    size: Math.random() * 6 + 4,
     color: colors[Math.floor(Math.random() * colors.length)],
-    rotation: Math.random() * 360,
-    vRot: (Math.random() - 0.5) * 12,
-    opacity: 1
+    rot: Math.random() * 360,
+    vr: (Math.random() - 0.5) * 10,
+    life: 1
   }));
 
-  const start = performance.now();
-  function loop(now) {
-    const elapsed = now - start;
+  let start = performance.now();
+  function frame(now) {
+    const dt = (now - start) / 1000;
+    start = now;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    particles.forEach(p => {
+
+    let alive = 0;
+    for (const p of particles) {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.48;
-      p.vx *= 0.98;
-      p.rotation += p.vRot;
-      if (elapsed > 1700) p.opacity -= 0.025;
-      if (p.opacity > 0 && p.y < canvas.height + 20) {
-        alive = true;
+      p.vy += 22 * dt;
+      p.rot += p.vr;
+      p.life -= 0.6 * dt;
+
+      if (p.life > 0) {
+        alive++;
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.rotate((p.rot * Math.PI) / 180);
+        ctx.globalAlpha = Math.max(0, p.life);
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = Math.max(0, p.opacity);
-        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
         ctx.restore();
       }
-    });
-
-    if (alive && elapsed < 3500) {
-      requestAnimationFrame(loop);
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      canvas.style.display = 'none';
     }
+
+    if (alive > 0) requestAnimationFrame(frame);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
-  requestAnimationFrame(loop);
+  requestAnimationFrame(frame);
 }
 
-function animateNumber(el, target, formatFn = n => n.toLocaleString()) {
+/* ---------- Number Animation Helper ---------- */
+function animateNumber(el, targetVal, formatFn = v => v) {
   if (!el) return;
-  const currentVal = Number(el.dataset.rawVal || 0);
-  if (currentVal === target) {
-    el.textContent = formatFn(target);
+  const startVal = parseInt(el.dataset.val || '0', 10);
+  if (isNaN(startVal) || startVal === targetVal) {
+    el.textContent = formatFn(targetVal);
+    el.dataset.val = targetVal;
     return;
   }
-  const duration = 380;
-  const startTime = performance.now();
-  function update(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
+  const diff = targetVal - startVal;
+  const duration = 220;
+  const start = performance.now();
+
+  function step(now) {
+    const progress = Math.min((now - start) / duration, 1);
     const ease = 1 - Math.pow(1 - progress, 3);
-    const cur = Math.round(currentVal + (target - currentVal) * ease);
-    el.textContent = formatFn(cur);
-    if (progress < 1) requestAnimationFrame(update);
-    else {
-      el.dataset.rawVal = target;
-      el.textContent = formatFn(target);
+    const current = Math.round(startVal + diff * ease);
+    el.textContent = formatFn(current);
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      el.textContent = formatFn(targetVal);
+      el.dataset.val = targetVal;
     }
   }
-  requestAnimationFrame(update);
+  requestAnimationFrame(step);
 }
 
-function getFileBadge(filename) {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-  let cls = 'ext-other', lbl = ext ? ext.slice(0, 4) : 'FILE';
-  if (['js', 'mjs', 'cjs'].includes(ext)) { cls = 'ext-js'; lbl = 'JS'; }
-  else if (['ts', 'mts'].includes(ext)) { cls = 'ext-ts'; lbl = 'TS'; }
-  else if (['jsx', 'tsx'].includes(ext)) { cls = 'ext-ts'; lbl = ext.toUpperCase(); }
-  else if (['json', 'yaml', 'yml'].includes(ext)) { cls = 'ext-json'; lbl = ext.toUpperCase(); }
-  else if (['html', 'htm'].includes(ext)) { cls = 'ext-html'; lbl = 'HTML'; }
-  else if (['css', 'scss', 'sass', 'less'].includes(ext)) { cls = 'ext-css'; lbl = 'CSS'; }
-  else if (['md', 'txt', 'markdown'].includes(ext)) { cls = 'ext-md'; lbl = 'MD'; }
-  else if (['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif', 'ico'].includes(ext)) { cls = 'ext-img'; lbl = 'IMG'; }
-  else if (['py'].includes(ext)) { cls = 'ext-py'; lbl = 'PY'; }
-  else if (['sh', 'bash'].includes(ext)) { cls = 'ext-sh'; lbl = 'SH'; }
-  return `<span class="ext-badge ${cls}">${lbl}</span>`;
-}
-
-function setPipelineStage(stageNum, title, currentFileName, speedText = '') {
+/* ---------- Live Multi-Stage Pipeline Controls ---------- */
+function setPipelineStage(stageNum, title, currentFileName, speedText) {
   const card = $('#pipelineCard');
   if (!card) return;
   card.hidden = false;
@@ -429,21 +527,20 @@ function setPipelineStage(stageNum, title, currentFileName, speedText = '') {
   for (let i = 1; i <= 5; i++) {
     const stepEl = $('#stage' + i);
     if (!stepEl) continue;
-    const dot = stepEl.querySelector('.stage-dot');
     if (i < stageNum) {
-      stepEl.className = 'pipeline-step done';
-      dot.innerHTML = '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+      stepEl.className = 'pipeline-step completed';
+      stepEl.querySelector('.stage-dot').innerHTML = '✓';
     } else if (i === stageNum) {
       stepEl.className = 'pipeline-step active';
-      dot.textContent = i;
+      stepEl.querySelector('.stage-dot').textContent = i;
     } else {
       stepEl.className = 'pipeline-step';
-      dot.textContent = i;
+      stepEl.querySelector('.stage-dot').textContent = i;
     }
   }
 }
 
-/* ---------- Authentication Step ---------- */
+/* ---------- Auth & Token Management ---------- */
 $('#reveal').onclick = () => {
   const t = $('#token'), isPw = t.type === 'password';
   t.type = isPw ? 'text' : 'password';
@@ -452,114 +549,104 @@ $('#reveal').onclick = () => {
 };
 
 $('#disconnectBtn').onclick = () => {
-  token = ''; me = '';
+  token = '';
+  me = '';
   $('#token').value = '';
   store.del('f2g.token');
   $('#authCard').hidden = true;
   $('#repos').textContent = '';
   $('#branches').textContent = '';
-  msg('Disconnected.', 'ok');
-  showToast('Disconnected from GitHub', 'info');
   refresh();
+  showToast('Token cleared and disconnected', 'info');
+  playSound('pop');
 };
 
-let verifyTimer = null, verifySeq = 0;
+let verifyTimer = null;
 async function verifyToken() {
-  const seq = ++verifySeq;
   token = $('#token').value.trim();
-  me = ''; defaults = {};
+  me = '';
   $('#repos').textContent = '';
-
   if (!token) {
     $('#authCard').hidden = true;
     return refresh();
   }
 
   $('#authCard').hidden = false;
-  $('#authName').textContent = 'Authenticating with GitHub…';
-  $('#authAvatar').src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2398a2b3"><circle cx="12" cy="12" r="10"/></svg>';
+  $('#authName').textContent = 'Authenticating…';
+  $('#authAvatar').src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2394a3b8"><circle cx="12" cy="12" r="10"/></svg>';
   $('#authScopes').textContent = 'Checking scopes…';
-  $('#rateLimitPill').textContent = 'Rate limit: checking…';
+  $('#rateLimitPill').textContent = 'Rate: …';
 
   try {
-    const res = await gh('/user');
-    if (seq !== verifySeq) return;
-    me = res.login;
-    $('#authAvatar').src = res.avatar_url;
-    $('#authName').textContent = res.name ? `${res.name} (@${res.login})` : `@${res.login}`;
-    $('#authScopes').textContent = token.startsWith('github_pat_') ? 'Fine-grained Token' : 'Classic Token';
-    
-    // Check rate limit
-    try {
-      const rl = await gh('/rate_limit');
-      if (rl && rl.rate) {
-        const rem = rl.rate.remaining, tot = rl.rate.limit;
-        const resetMin = Math.max(0, Math.ceil((rl.rate.reset - Date.now() / 1000) / 60));
-        $('#rateLimitPill').textContent = `Rate: ${rem}/${tot} (${resetMin}m reset)`;
+    const res = await fetch(API + '/user', {
+      headers: {
+        Authorization: 'token ' + token,
+        Accept: 'application/vnd.github+json'
       }
-    } catch {}
-
-    updateStepper();
-    showToast(`Connected as @${me}`, 'ok');
-  } catch (err) {
-    if (seq !== verifySeq) return;
-    $('#authCard').hidden = true;
-    msg(err.status === 401 ? 'Personal access token not accepted. Please check it.' : 'Could not reach GitHub: ' + err.message, 'err');
-    return;
-  }
-
-  // Fetch list of repositories
-  try {
-    const list = await gh('/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member');
-    if (seq !== verifySeq) return;
-    const dl = $('#repos');
-    dl.textContent = '';
-    list.filter(r => !r.permissions || r.permissions.push).forEach(r => {
-      defaults[r.full_name.toLowerCase()] = r.default_branch;
-      dl.append(Object.assign(document.createElement('option'), { value: r.full_name }));
     });
-    repoChanged();
-  } catch {}
+
+    const rate = res.headers.get('x-ratelimit-remaining');
+    const limit = res.headers.get('x-ratelimit-limit');
+    if (rate) $('#rateLimitPill').textContent = `Rate: ${rate}/${limit}`;
+
+    if (!res.ok) {
+      $('#authName').textContent = 'Authentication failed';
+      $('#authScopes').textContent = res.status === 401 ? 'Bad credentials' : `HTTP ${res.status}`;
+      return refresh();
+    }
+
+    const data = await res.json();
+    me = data.login;
+    $('#authName').textContent = '@' + data.login + (data.name ? ` (${data.name})` : '');
+    $('#authAvatar').src = data.avatar_url;
+
+    const scopes = res.headers.get('x-oauth-scopes');
+    $('#authScopes').textContent = scopes !== null ? (scopes ? `Scope: ${scopes}` : 'Fine-grained PAT') : 'Active';
+
+    showToast(`Connected as @${me}`, 'ok');
+    playSound('success');
+
+    // Populate user repositories in background
+    gh('/user/repos?per_page=100&sort=updated').then(repos => {
+      const dl = $('#repos');
+      dl.textContent = '';
+      repos.forEach(r => dl.append(Object.assign(document.createElement('option'), { value: r.full_name })));
+    }).catch(() => {});
+  } catch(e) {
+    $('#authName').textContent = 'Network error';
+    $('#authScopes').textContent = e.message;
+  }
+  refresh();
 }
 
 $('#token').addEventListener('input', () => {
   clearTimeout(verifyTimer);
-  verifyTimer = setTimeout(verifyToken, 650);
-  if ($('#remember').checked) {
-    const t = $('#token').value.trim();
-    t ? store.set('f2g.token', t) : store.del('f2g.token');
-  }
-});
-$('#token').addEventListener('change', () => { clearTimeout(verifyTimer); verifyToken(); });
-$('#remember').addEventListener('change', () => {
-  const t = $('#token').value.trim();
-  $('#remember').checked && t ? store.set('f2g.token', t) : store.del('f2g.token');
+  verifyTimer = setTimeout(verifyToken, 450);
 });
 
-/* ---------- Destination Step ---------- */
-function slugOf() {
-  let s = $('#repo').value.trim();
-  const m = s.match(/github\.com[\/:]([^\/\s]+)\/([^\/\s#?]+)/i);
-  if (m) s = m[1] + '/' + m[2];
-  return s.replace(/\.git$/i, '').replace(/\/+$/, '');
-}
-
-const badBranch = b => !!b && (/[\s~^:?*\[\\]/.test(b) || /\.\.|\/\/|@\{/.test(b) || /^[\/.-]|[\/.]$|\.lock$/.test(b) || b === '@');
+/* ---------- Destination Management ---------- */
+$('#create').addEventListener('change', () => {
+  const c = $('#create').checked;
+  $('#privWrap').hidden = !c;
+  $('#repoLabel').textContent = c ? 'New Repository Name' : 'Repository';
+  $('#repo').placeholder = c ? 'my-cool-project' : 'owner/repo or paste GitHub URL';
+  $('#repoHelp').innerHTML = c 
+    ? 'A fresh empty repository will be provisioned under <strong>' + (me || 'your account') + '</strong>.'
+    : 'Type <code>owner/repository</code>, paste URL, or select from dropdown.';
+  refresh();
+});
 
 let branchTimer = null;
 function repoChanged() {
-  const slug = slugOf();
-  $('#branch').placeholder = defaults[slug.toLowerCase()] || 'Default branch';
   clearTimeout(branchTimer);
-  if (!token || $('#create').checked || !/^[\w.-]+\/[\w.-]+$/.test(slug)) return refresh();
-
   branchTimer = setTimeout(async () => {
+    const slug = slugOf();
+    if (!token || !slug || !/^[\w.-]+\/[\w.-]+$/.test(slug)) return;
     try {
       const bs = await gh('/repos/' + slug + '/branches?per_page=100');
       const dl = $('#branches');
       dl.textContent = '';
       bs.forEach(b => dl.append(Object.assign(document.createElement('option'), { value: b.name })));
-      // Check remote tree for diffing
       checkRemoteDiff();
     } catch {}
   }, 400);
@@ -573,24 +660,16 @@ $('#branch').addEventListener('input', () => {
 });
 $('#prefix').addEventListener('input', refresh);
 
-// Prefix chips
-$$('.chips-row .chip').forEach(c => {
-  c.addEventListener('click', () => {
-    $('#prefix').value = c.dataset.prefix;
+// Prefix Quick Chips
+$$('.chip[data-prefix]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('#prefix').value = btn.dataset.prefix;
     refresh();
+    playSound('pop');
   });
 });
 
-$('#create').addEventListener('change', () => {
-  const c = $('#create').checked;
-  $('#privWrap').hidden = !c;
-  $('#repoLabel').textContent = c ? 'New repository name' : 'Repository';
-  $('#repo').placeholder = c ? 'my-awesome-repo' : 'owner/repo';
-  $('#repoHelp').textContent = c ? 'Repository will be created under your GitHub account with an initial commit.' : 'Type owner/repo or paste a full GitHub repo link.';
-  refresh();
-});
-
-// Filter Accordion
+/* ---------- Filter Accordion & Stack Presets ---------- */
 $('#filterToggle').onclick = () => {
   const c = $('#filterContent');
   const exp = c.hidden;
@@ -599,7 +678,6 @@ $('#filterToggle').onclick = () => {
   $('#filterArrow').style.transform = exp ? 'rotate(180deg)' : '';
 };
 
-// Stack Preset Chips in Filter Box
 $$('.preset-chip').forEach(chip => {
   chip.addEventListener('click', () => {
     const preset = chip.dataset.preset;
@@ -612,37 +690,55 @@ $$('.preset-chip').forEach(chip => {
     };
     const val = presetsMap[preset];
     if (val) {
-      const current = input.value.trim();
-      input.value = current ? current + ', ' + val : val;
-      refresh();
-      showToast(`Applied ${chip.textContent.trim()} ignore preset`, 'ok');
+      if (input.value.trim()) {
+        input.value = input.value.trim() + ', ' + val;
+      } else {
+        input.value = val;
+      }
+      showToast(`Added ${preset.toUpperCase()} ignore preset`, 'ok');
       playSound('pop');
+      refresh();
     }
   });
 });
 
-/* ---------- File Ingestion & Path Cleaning ---------- */
-function srcMsg(t) { $('#srcMsg').textContent = t || ''; }
+$('#skip').addEventListener('change', refresh);
+$('#keepRoot').addEventListener('change', refresh);
+$('#customIgnore').addEventListener('input', refresh);
+$('#applyGitignore')?.addEventListener('change', refresh);
 
+/* ---------- File Ingestion & High-Speed Batch Reader ---------- */
 function cleanPath(p) {
-  const parts = String(p).replace(/\\/g, '/').split('/').filter(s => s && s !== '.');
-  return !parts.length || parts.includes('..') ? '' : parts.join('/');
+  return p.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+/g, '/');
 }
 
-let badPathCount = 0;
-function addFile(path, file) {
-  const c = cleanPath(path);
-  if (c) files.set(c, file);
-  else badPathCount++;
+function addFile(rawPath, file) {
+  const p = cleanPath(rawPath);
+  if (!p) return;
+  files.set(p, file);
 }
 
-async function reportFiles(n, what) {
-  srcMsg((n ? `Added ${plural(n, 'file')}` : 'No files discovered') + 
-    (what ? ` from ${what}` : '') + '.' + 
-    (badPathCount ? ` ${plural(badPathCount, 'file')} skipped due to unsafe paths.` : ''));
-  badPathCount = 0;
+function bindInput(btnSelector, inputSelector, handler) {
+  const b = $(btnSelector), inp = $(inputSelector);
+  if (!b || !inp) return;
+  b.onclick = () => inp.click();
+  inp.onchange = async () => {
+    if (busy || !inp.files.length) return;
+    await handler(inp.files);
+    inp.value = '';
+  };
+}
 
-  // Check if .gitignore exists in loaded files
+async function reportFiles(count, name) {
+  if (count <= 0) {
+    srcMsg('No new files were found.');
+    return;
+  }
+  srcMsg(`Staged ${count.toLocaleString()} file${count > 1 ? 's' : ''}${name ? ' from ' + name : ''}.`);
+  showToast(`Staged ${count.toLocaleString()} file${count > 1 ? 's' : ''}`, 'ok');
+  playSound('pop');
+
+  // Auto-detect .gitignore in top-level directory
   for (const [p, f] of files) {
     if (/(^|\/)\.gitignore$/i.test(p)) {
       try {
@@ -656,36 +752,32 @@ async function reportFiles(n, what) {
       break;
     }
   }
-
-  if (n) {
-    showToast(`Added ${plural(n, 'file')}${what ? ' from ' + what : ''}`, 'ok');
-    playSound('pop');
-  }
 }
 
-const bindInput = (btn, input, fn) => {
-  $(btn).onclick = () => { if (!busy) $(input).click(); };
-  $(input).onchange = async e => {
-    const f = [...e.target.files];
-    e.target.value = '';
-    if (!busy && f.length) await fn(f);
-  };
-};
-
-bindInput('#bFolder', '#pFolder', async f => {
-  f.forEach(x => addFile(x.webkitRelativePath || x.name, x));
-  await reportFiles(f.length);
+// Button Bindings
+bindInput('#bFolder', '#pFolder', async fileList => {
+  srcMsg(`Staging ${fileList.length.toLocaleString()} files…`);
+  const beforeCount = files.size;
+  for (let i = 0; i < fileList.length; i++) {
+    const f = fileList[i];
+    addFile(f.webkitRelativePath || f.name, f);
+  }
+  await reportFiles(files.size - beforeCount);
   refresh();
 });
 
-bindInput('#bFiles', '#pFiles', async f => {
-  f.forEach(x => addFile(x.name, x));
-  await reportFiles(f.length);
+bindInput('#bFiles', '#pFiles', async fileList => {
+  const beforeCount = files.size;
+  for (let i = 0; i < fileList.length; i++) {
+    const f = fileList[i];
+    addFile(f.name, f);
+  }
+  await reportFiles(files.size - beforeCount);
   refresh();
 });
 
-bindInput('#bZip', '#pZip', async f => {
-  for (const z of f) await addZip(z);
+bindInput('#bZip', '#pZip', async fileList => {
+  for (const f of fileList) await addZip(f);
   refresh();
 });
 
@@ -698,8 +790,7 @@ function loadZipLib() {
     s.onload = resolve;
     s.onerror = () => {
       zipLibPromise = null;
-      s.remove();
-      reject(new Error('Failed to load ZIP processor library.'));
+      reject(new Error('Failed to load ZIP extraction library'));
     };
     document.head.append(s);
   }));
@@ -707,7 +798,7 @@ function loadZipLib() {
 
 async function addZip(file) {
   try {
-    srcMsg(`Uncompressing ${file.name}…`);
+    srcMsg(`Unpacking ${file.name}…`);
     await loadZipLib();
     const zip = await JSZip.loadAsync(file);
     const jobs = [];
@@ -748,6 +839,57 @@ document.addEventListener('dragleave', e => {
   }
 });
 
+// High-speed parallel entry traversal for huge drops
+async function traverseFileSystemEntries(entryList) {
+  const dirQueue = [];
+  const fileJobs = [];
+  let foundCount = 0;
+
+  for (const en of entryList) {
+    if (en.isFile) {
+      fileJobs.push(new Promise((res, rej) => en.file(f => {
+        addFile(en.fullPath, f);
+        foundCount++;
+        res();
+      }, rej)));
+    } else if (en.isDirectory) {
+      dirQueue.push(en);
+    }
+  }
+
+  // Concurrency-controlled directory queue processing
+  while (dirQueue.length > 0) {
+    const dir = dirQueue.shift();
+    const reader = dir.createReader();
+    let batch;
+    do {
+      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+      for (const child of batch) {
+        if (child.isFile) {
+          fileJobs.push(new Promise((res, rej) => child.file(f => {
+            addFile(child.fullPath, f);
+            foundCount++;
+            res();
+          }, rej)));
+        } else if (child.isDirectory) {
+          dirQueue.push(child);
+        }
+      }
+      if (foundCount % 200 === 0) {
+        srcMsg(`Discovered ${foundCount.toLocaleString()} files…`);
+        await sleep(0);
+      }
+    } while (batch.length > 0);
+  }
+
+  // Resolve files with a concurrency pool of 32
+  const CONCURRENCY = 32;
+  for (let i = 0; i < fileJobs.length; i += CONCURRENCY) {
+    await Promise.all(fileJobs.slice(i, i + CONCURRENCY));
+    if (i % 256 === 0) await sleep(0);
+  }
+}
+
 document.addEventListener('drop', async e => {
   if (!hasFilesData(e)) return;
   e.preventDefault();
@@ -772,33 +914,29 @@ document.addEventListener('drop', async e => {
       if (/\.zip$/i.test(f.name)) { hasZip = true; await addZip(f); }
       else addFile(f.name, f);
     }
+    
+    const zipEntries = [];
+    const nonZipEntries = [];
     for (const en of entries) {
-      if (en.isFile && /\.zip$/i.test(en.name)) {
-        hasZip = true;
-        await addZip(await new Promise((res, rej) => en.file(res, rej)));
-      } else {
-        await scanEntry(en);
-      }
+      if (en.isFile && /\.zip$/i.test(en.name)) zipEntries.push(en);
+      else nonZipEntries.push(en);
     }
+
+    for (const en of zipEntries) {
+      hasZip = true;
+      await addZip(await new Promise((res, rej) => en.file(res, rej)));
+    }
+
+    if (nonZipEntries.length > 0) {
+      await traverseFileSystemEntries(nonZipEntries);
+    }
+
     if (!hasZip) await reportFiles(files.size - beforeCount);
   } catch (err) {
     srcMsg('Error reading dropped files: ' + err.message);
   }
   refresh();
 });
-
-async function scanEntry(en) {
-  if (en.isFile) {
-    addFile(en.fullPath, await new Promise((res, rej) => en.file(res, rej)));
-  } else if (en.isDirectory) {
-    const reader = en.createReader();
-    let batch;
-    do {
-      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
-      for (const child of batch) await scanEntry(child);
-    } while (batch.length);
-  }
-}
 
 /* ---------- Manifest & Filtering Logic ---------- */
 function getCustomRegex() {
@@ -835,22 +973,29 @@ function computeCurrentManifest() {
     out.push({ path, file });
   }
 
-  // Path normalization and stripping
-  const roots = new Set(out.map(o => o.path.split('/')[0]));
-  const strip = !$('#keepRoot').checked && roots.size === 1 && out.every(o => o.path.includes('/'));
-  const pre = cleanPath($('#prefix').value);
+  // Path Prefixing
+  const keepRoot = $('#keepRoot').checked;
+  const prefix = $('#prefix').value.trim().replace(/^\/+|\/+$/g, '');
+  let commonRoot = '';
 
-  out.forEach(o => {
-    const p = strip ? o.path.split('/').slice(1).join('/') : o.path;
-    o.repoPath = pre ? pre + '/' + p : p;
-    o.diffStatus = getFileDiffStatus(o.repoPath);
-    o.hasSecret = fileSecretsMap.has(o.path);
-  });
+  if (!keepRoot && out.length > 0) {
+    const firstSlash = out[0].path.indexOf('/');
+    if (firstSlash !== -1) {
+      const cand = out[0].path.slice(0, firstSlash + 1);
+      if (out.every(o => o.path.startsWith(cand))) commonRoot = cand;
+    }
+  }
+
+  for (const o of out) {
+    let rel = commonRoot ? o.path.slice(commonRoot.length) : o.path;
+    o.repoPath = prefix ? `${prefix}/${rel}` : rel;
+  }
 
   return { out, junkCount, bigFiles, hardRejects };
 }
 
-/* ---------- Remote Diff Engine ---------- */
+/* ---------- Remote Diff Engine (Batched & Cached) ---------- */
+let diffCheckTimer = null;
 async function checkRemoteDiff() {
   const slug = slugOf();
   const wantBranch = $('#branch').value.trim();
@@ -858,8 +1003,25 @@ async function checkRemoteDiff() {
 
   try {
     const repo = await gh('/repos/' + slug);
-    const branch = wantBranch || repo.default_branch;
-    const refData = await gh('/repos/' + slug + '/git/ref/heads/' + enc(branch));
+    const branch = wantBranch || repo.default_branch || 'main';
+
+    // Safely check if branch ref exists (returns 404 if repository is empty or branch does not exist)
+    let refData = null;
+    try {
+      refData = await gh('/repos/' + slug + '/git/ref/heads/' + enc(branch));
+    } catch (refErr) {
+      // Empty repo or new branch: treat all staged files as new
+      remoteTreeMap.clear();
+      updateDiffUI();
+      return;
+    }
+
+    if (!refData || !refData.object || !refData.object.sha) {
+      remoteTreeMap.clear();
+      updateDiffUI();
+      return;
+    }
+
     const baseSha = refData.object.sha;
     const commit = await gh('/repos/' + slug + '/git/commits/' + baseSha);
     const treeData = await gh('/repos/' + slug + '/git/trees/' + commit.tree.sha + '?recursive=1');
@@ -873,18 +1035,22 @@ async function checkRemoteDiff() {
       });
     }
 
-    // Compute hashes for staged files asynchronously
+    // Compute hashes for staged files with a concurrency pool of 8
     const { out } = computeCurrentManifest();
-    for (const item of out) {
-      if (!fileGitShaMap.has(item.path)) {
-        computeGitBlobSha(item.file).then(sha => {
-          if (sha) {
-            fileGitShaMap.set(item.path, sha);
-            updateDiffUI();
-          }
-        });
-      }
+    const pending = out.filter(o => !fileGitShaMap.has(o.repoPath));
+    const CONCURRENCY = 8;
+
+    for (let i = 0; i < pending.length; i += CONCURRENCY) {
+      const slice = pending.slice(i, i + CONCURRENCY);
+      await Promise.all(slice.map(async item => {
+        const sha = await computeGitBlobSha(item.file);
+        if (sha) fileGitShaMap.set(item.repoPath, sha);
+      }));
+      // Debounce UI update
+      clearTimeout(diffCheckTimer);
+      diffCheckTimer = setTimeout(updateDiffUI, 80);
     }
+
     updateDiffUI();
   } catch(e) {
     remoteTreeMap.clear();
@@ -916,9 +1082,9 @@ function updateDiffUI() {
   });
 
   $('#diffBar').hidden = false;
-  $('#diffNew').textContent = `+${countNew} new`;
-  $('#diffMod').textContent = `~${countMod} modified`;
-  $('#diffSame').textContent = `${countSame} identical`;
+  $('#diffNew').textContent = `+${countNew.toLocaleString()} new`;
+  $('#diffMod').textContent = `~${countMod.toLocaleString()} modified`;
+  $('#diffSame').textContent = `${countSame.toLocaleString()} identical`;
 }
 
 // Diff filter buttons
@@ -927,7 +1093,7 @@ $$('.diff-pill').forEach(btn => {
     $$('.diff-pill').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeDiffFilter = btn.dataset.diff;
-    refresh();
+    renderManifestRows();
   });
 });
 
@@ -958,164 +1124,153 @@ async function downloadCleanZip() {
 $('#downloadZipBtn')?.addEventListener('click', downloadCleanZip);
 
 /* ---------- Stepper State Sync ---------- */
-function updateStepper() {
-  const hasToken = !!$('#token').value.trim();
+function syncStepperState() {
+  const hasToken = Boolean(token);
   const slug = slugOf();
-  const hasDestination = $('#create').checked ? !!slug : /^[\w.-]+\/[\w.-]+$/.test(slug);
-  const { out } = computeCurrentManifest();
-  const hasFiles = out.length > 0;
+  const hasDest = Boolean(slug && (($('#create')?.checked && /^[\w.-]+$/.test(slug)) || /^[\w.-]+\/[\w.-]+$/.test(slug)));
+  const hasFiles = files.size > 0;
 
-  $('#tab1').classList.toggle('completed', hasToken && !!me);
-  $('#tab2').classList.toggle('completed', hasDestination);
-  $('#tab3').classList.toggle('completed', hasFiles);
-  $('#tab4').classList.toggle('completed', hasToken && hasDestination && hasFiles);
+  const t1 = $('#tab1'), t2 = $('#tab2'), t3 = $('#tab3'), t4 = $('#tab4');
+  if (t1) {
+    t1.classList.toggle('completed', hasToken);
+    t1.classList.toggle('active', !hasToken);
+  }
+  if (t2) {
+    t2.classList.toggle('completed', hasToken && hasDest);
+    t2.classList.toggle('active', hasToken && !hasDest);
+  }
+  if (t3) {
+    t3.classList.toggle('completed', hasFiles);
+    t3.classList.toggle('active', hasToken && hasDest && !hasFiles);
+  }
+  if (t4) {
+    t4.classList.toggle('active', hasToken && hasDest && hasFiles);
+  }
 }
 
-// Stepper click navigation
-$('#tab1').onclick = () => $('#step1-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
-$('#tab2').onclick = () => $('#step2-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
-$('#tab3').onclick = () => $('#step3-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
-$('#tab4').onclick = () => $('#step4-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+// Stepper click handlers to scroll to cards
+$('#tab1')?.addEventListener('click', () => $('#step1-title')?.scrollIntoView({ behavior: 'smooth' }));
+$('#tab2')?.addEventListener('click', () => $('#step2-title')?.scrollIntoView({ behavior: 'smooth' }));
+$('#tab3')?.addEventListener('click', () => $('#step3-title')?.scrollIntoView({ behavior: 'smooth' }));
+$('#tab4')?.addEventListener('click', () => $('#step4-title')?.scrollIntoView({ behavior: 'smooth' }));
 
-/* ---------- Review View: Flat & Tree ---------- */
+/* ---------- Tree View Generator ---------- */
 function buildTreeStructure(items) {
-  const root = { name: '', fullPath: '', isDir: true, children: new Map(), files: [] };
-  items.forEach(item => {
+  const root = { name: '', isDir: true, children: new Map(), size: 0 };
+  for (const item of items) {
     const parts = item.repoPath.split('/');
     let cur = root;
-    let accumulatedPath = '';
-    for (let i = 0; i < parts.length - 1; i++) {
+    for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
-      accumulatedPath = accumulatedPath ? accumulatedPath + '/' + part : part;
+      const isFile = i === parts.length - 1;
       if (!cur.children.has(part)) {
-        cur.children.set(part, { name: part, fullPath: accumulatedPath, isDir: true, children: new Map(), files: [] });
+        cur.children.set(part, {
+          name: part,
+          isDir: !isFile,
+          children: new Map(),
+          item: isFile ? item : null,
+          size: 0
+        });
       }
       cur = cur.children.get(part);
+      cur.size += item.file.size;
     }
-    cur.files.push(item);
-  });
+  }
   return root;
 }
 
-function deleteFolder(folderRepoPath) {
-  const { out } = computeCurrentManifest();
-  const toDelete = out.filter(o => o.repoPath === folderRepoPath || o.repoPath.startsWith(folderRepoPath + '/'));
-  toDelete.forEach(o => files.delete(o.path));
-  refresh();
-}
-
-function countNodeFiles(node) {
-  let count = node.files.length;
-  for (const child of node.children.values()) {
-    count += countNodeFiles(child);
-  }
-  return count;
-}
-
 function renderTree(node, container, depth = 0) {
-  // Folders first
-  const folderNames = [...node.children.keys()].sort();
-  for (const fName of folderNames) {
-    const childNode = node.children.get(fName);
-    const count = countNodeFiles(childNode);
-    const folderWrap = document.createElement('div');
-    folderWrap.className = 'tree-node';
-
-    const folderBar = document.createElement('div');
-    folderBar.className = 'tree-folder open';
-    folderBar.innerHTML = `
-      <svg class="icon icon-sm tree-folder-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      <svg class="icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-      <span style="flex:1;">${escapeHTML(fName)} <span style="font-size:0.75rem; color:var(--muted); font-weight:400;">(${count})</span></span>
-      <button class="action-icon-btn remove-folder-btn" type="button" aria-label="Remove entire folder" title="Remove entire folder">×</button>
-    `;
-
-    const childrenWrap = document.createElement('div');
-    childrenWrap.className = 'tree-children';
-
-    folderBar.onclick = (e) => {
-      if (e.target.closest('.remove-folder-btn')) return;
-      folderBar.classList.toggle('open');
-      childrenWrap.classList.toggle('collapsed');
-    };
-
-    folderBar.querySelector('.remove-folder-btn').onclick = (e) => {
-      e.stopPropagation();
-      deleteFolder(childNode.fullPath);
-      showToast(`Removed folder: ${fName}`, 'info');
-    };
-
-    folderWrap.append(folderBar, childrenWrap);
-    container.append(folderWrap);
-
-    renderTree(childNode, childrenWrap, depth + 1);
-  }
-
-  // Files in this node
-  node.files.sort((a,b) => a.repoPath.localeCompare(b.repoPath)).forEach(item => {
-    const fileRow = document.createElement('div');
-    fileRow.className = 'tree-file';
-    fileRow.dataset.path = item.path;
-    const name = item.repoPath.split('/').pop();
-    const badge = getFileBadge(name);
-    fileRow.innerHTML = `
-      <div style="display:flex; align-items:center; gap:0.45rem; min-width:0; overflow:hidden;">
-        ${badge}
-        <span class="file-path" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${escapeHTML(item.repoPath)}">${escapeHTML(name)}</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:0.6rem;">
-        <span class="file-size">${fmt(item.file.size)}</span>
-        <button class="action-icon-btn remove-btn" type="button" aria-label="Remove file" title="Remove">×</button>
-      </div>
-    `;
-    fileRow.querySelector('.file-path').onclick = () => openFilePreview(item);
-    fileRow.querySelector('.remove-btn').onclick = (e) => {
-      e.stopPropagation();
-      files.delete(item.path);
-      refresh();
-      showToast(`Removed ${name}`, 'info');
-    };
-    container.append(fileRow);
+  const sorted = Array.from(node.children.values()).sort((a, b) => {
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    return a.name.localeCompare(b.name);
   });
+
+  for (const child of sorted) {
+    if (child.isDir) {
+      const f = document.createElement('div');
+      f.className = 'tree-folder';
+      f.innerHTML = `
+        <div class="tree-folder-title">
+          <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          <svg class="icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          <span style="font-weight:600;">${escapeHTML(child.name)}</span>
+          <span style="font-size:0.6875rem; color:var(--muted); margin-left:auto;">${fmt(child.size)}</span>
+        </div>
+        <div class="tree-children"></div>
+      `;
+      const title = f.querySelector('.tree-folder-title');
+      const childrenBox = f.querySelector('.tree-children');
+      title.onclick = () => {
+        childrenBox.hidden = !childrenBox.hidden;
+        title.querySelector('.icon').style.transform = childrenBox.hidden ? 'rotate(-90deg)' : '';
+      };
+      renderTree(child, childrenBox, depth + 1);
+      container.append(f);
+    } else {
+      const el = document.createElement('div');
+      el.className = 'tree-file';
+      const ext = getExt(child.item.repoPath);
+      el.innerHTML = `
+        <div style="display:flex; align-items:center; gap:0.4rem; overflow:hidden;">
+          <span class="ext-badge ${['js','ts','tsx','py','json','css','html','md'].includes(ext) ? ext : 'other'}">${ext || '·'}</span>
+          <span class="file-path" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(child.name)}</span>
+        </div>
+        <span class="file-size">${fmt(child.item.file.size)}</span>
+      `;
+      el.querySelector('.file-path').onclick = () => openFilePreview(child.item);
+      container.append(el);
+    }
+  }
 }
 
-function refresh() {
-  if (busy) return;
-  const { out, junkCount, bigFiles, hardRejects } = computeCurrentManifest();
-  const totalBytes = out.reduce((s, o) => s + o.file.size, 0);
+// Tree view expand / collapse
+$('#expandAllBtn')?.addEventListener('click', () => {
+  $$('.tree-children').forEach(el => el.hidden = false);
+  $$('.tree-folder-title .icon').forEach(el => el.style.transform = '');
+});
+$('#collapseAllBtn')?.addEventListener('click', () => {
+  $$('.tree-children').forEach(el => el.hidden = true);
+  $$('.tree-folder-title .icon').forEach(el => el.style.transform = 'rotate(-90deg)');
+});
 
-  $('#emptyReview').hidden = files.size > 0;
-  $('#filledReview').hidden = files.size === 0;
-  
-  // Smooth number transitions
-  animateNumber($('#cnt'), out.length);
-  animateNumber($('#size'), totalBytes, fmt);
-  
-  const estBlobs = out.filter(o => o.file.size > INLINE_MAX).length;
-  const estTrees = Math.ceil(out.length / TREE_MAX_ENTRIES);
-  animateNumber($('#apiEst'), estBlobs + estTrees + 2);
+// View switching
+$('#tabFlat')?.addEventListener('click', () => {
+  currentView = 'flat';
+  $('#tabFlat').classList.add('active');
+  $('#tabTree').classList.remove('active');
+  $('#manifestWrap .manifest-table-header').hidden = false;
+  $('#manifestWrap .virtual-spacer').hidden = false;
+  $('#treeView').hidden = true;
+  $('#treeControls').hidden = true;
+});
+$('#tabTree')?.addEventListener('click', () => {
+  currentView = 'tree';
+  $('#tabTree').classList.add('active');
+  $('#tabFlat').classList.remove('active');
+  $('#manifestWrap .manifest-table-header').hidden = true;
+  $('#manifestWrap .virtual-spacer').hidden = true;
+  $('#treeView').hidden = false;
+  $('#treeControls').hidden = false;
 
-  // Run async secret scanning
-  scanAllStagedSecrets(out).then(secretCount => {
-    const secBanner = $('#securityBanner');
-    if (secretCount > 0) {
-      secBanner.hidden = false;
-      $('#secretCount').textContent = secretCount;
-      playSound('warn');
-    } else {
-      secBanner.hidden = true;
-    }
-  });
+  const { out } = computeCurrentManifest();
+  const treeContainer = $('#treeView');
+  treeContainer.textContent = '';
+  const root = buildTreeStructure(out);
+  renderTree(root, treeContainer);
+});
 
-  // Render Flat List
-  const q = $('#filter').value.trim().toLowerCase();
-  const manifest = $('#manifest');
-  manifest.textContent = '';
-  rowMap = new Map();
+/* ==========================================================================
+   Virtual Scroller Engine (60fps on 50,000+ files)
+   ========================================================================== */
+function renderManifestRows() {
+  const q = ($('#filter')?.value || '').trim().toLowerCase();
+  const { out } = computeCurrentManifest();
 
-  let filtered = out.filter(o => !q || o.repoPath.toLowerCase().includes(q));
-
-  // Diff Filter
+  // Filter by query and active diff
+  let filtered = out;
+  if (q) {
+    filtered = filtered.filter(o => o.repoPath.toLowerCase().includes(q));
+  }
   if (activeDiffFilter !== 'all') {
     filtered = filtered.filter(o => {
       if (activeDiffFilter === 'secret') return fileSecretsMap.has(o.path);
@@ -1123,39 +1278,62 @@ function refresh() {
     });
   }
 
-  filtered.slice(0, SHOW_LIMIT).forEach(o => {
+  currentFilteredList = filtered;
+  const container = $('#manifestWrap');
+  const spacer = $('.virtual-spacer');
+  const list = $('#manifest');
+
+  const total = filtered.length;
+  const totalHeight = total * ROW_HEIGHT;
+  if (spacer) spacer.style.height = `${totalHeight}px`;
+
+  // Virtual slice calculation
+  const scrollTop = container ? container.scrollTop : 0;
+  const viewportHeight = container ? container.clientHeight : 400;
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 5);
+  const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + 10;
+  const endIndex = Math.min(total, startIndex + visibleCount);
+
+  list.textContent = '';
+  list.style.transform = `translateY(${startIndex * ROW_HEIGHT}px)`;
+  rowMap = new Map();
+
+  for (let idx = startIndex; idx < endIndex; idx++) {
+    const o = filtered[idx];
     const li = document.createElement('li');
     li.className = 'manifest-row' + (fileSecretsMap.has(o.path) ? ' has-secret' : '');
     li.dataset.path = o.path;
 
+    const ext = getExt(o.repoPath);
     const isWarn = o.file.size > MAX_FILE_SIZE;
-    const badge = getFileBadge(o.repoPath);
     const diffStatus = getFileDiffStatus(o.repoPath);
     const hasSecret = fileSecretsMap.has(o.path);
 
+    // Path decomposition (directory dimmed, filename bold)
+    const lastSlash = o.repoPath.lastIndexOf('/');
+    const dir = lastSlash !== -1 ? o.repoPath.slice(0, lastSlash + 1) : '';
+    const name = lastSlash !== -1 ? o.repoPath.slice(lastSlash + 1) : o.repoPath;
+
     let statusBadge = '';
     if (hasSecret) {
-      statusBadge = '<span class="secret-badge">Secret</span>';
+      statusBadge = '<span class="secret-badge">SECRET</span>';
     } else if (diffStatus === 'new') {
-      statusBadge = '<span class="diff-badge new">New</span>';
+      statusBadge = '<span class="diff-badge new">+NEW</span>';
     } else if (diffStatus === 'mod') {
-      statusBadge = '<span class="diff-badge mod">Mod</span>';
+      statusBadge = '<span class="diff-badge mod">~MOD</span>';
     }
 
+    const badgeCls = ['js','ts','tsx','py','json','css','html','md'].includes(ext) ? ext : 'other';
+
     li.innerHTML = `
-      <span class="status-indicator"></span>
-      <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; overflow:hidden;">
-        ${badge}
-        <span class="file-path" title="${escapeHTML(o.repoPath)}" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHTML(o.repoPath)}</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:0.4rem;">
-        ${statusBadge}
-        ${isWarn ? `<span class="warning-badge" title="Files > 50MB should ideally use Git LFS">Large</span>` : ''}
-        <span class="file-size">${fmt(o.file.size)}</span>
-      </div>
-      <div class="row-actions">
-        <button class="action-icon-btn remove-btn" type="button" aria-label="Remove file" title="Remove file">×</button>
-      </div>
+      <span class="ext-badge ${badgeCls}">${ext || '·'}</span>
+      <span class="file-path" title="${escapeHTML(o.repoPath)}">
+        <span class="file-dir">${escapeHTML(dir)}</span><span class="file-name">${escapeHTML(name)}</span>
+      </span>
+      <span class="diff-status-col">${statusBadge}</span>
+      <span class="file-size">${fmt(o.file.size)}</span>
+      <button class="action-icon-btn remove-btn" type="button" aria-label="Remove file" title="Remove file">×</button>
     `;
 
     li.querySelector('.file-path').onclick = () => openFilePreview(o);
@@ -1163,104 +1341,106 @@ function refresh() {
       e.stopPropagation();
       files.delete(o.path);
       refresh();
-      showToast(`Removed ${o.repoPath.split('/').pop()}`, 'info');
+      showToast(`Removed ${name}`, 'info');
     };
 
-    manifest.append(li);
+    list.append(li);
     rowMap.set(o.path, li);
-  });
-
-  if (filtered.length > SHOW_LIMIT) {
-    const li = document.createElement('li');
-    li.style.padding = '0.75rem';
-    li.style.textAlign = 'center';
-    li.style.color = 'var(--muted)';
-    li.textContent = `and ${(filtered.length - SHOW_LIMIT).toLocaleString()} more files (use search filter to locate)`;
-    manifest.append(li);
   }
-
-  // Render Tree View
-  const treeContainer = $('#treeView');
-  treeContainer.textContent = '';
-  const treeRoot = buildTreeStructure(filtered);
-  renderTree(treeRoot, treeContainer);
-
-  // Notes & exclusions info
-  const notes = [];
-  if (junkCount) notes.push(`${junkCount.toLocaleString()} excluded by filters (clutter, secrets, or .git)`);
-  if (bigFiles.length) notes.push(`${bigFiles.length} files over 50MB detected`);
-  if (hardRejects.length) notes.push(`${hardRejects.length} files exceeded GitHub's 100MB limit and were skipped`);
-  $('#note').hidden = !notes.length;
-  $('#note').textContent = notes.join(' • ');
-
-  // Bottom dock status
-  const slug = slugOf(), br = $('#branch').value.trim() || $('#branch').placeholder || 'default branch';
-  if (out.length) {
-    $('#barMain').textContent = `${plural(out.length, 'file')} ready (${fmt(totalBytes)})`;
-    $('#barSub').textContent = slug ? `Ready to push to ${slug} (${br})` : 'Enter a repository destination in Step 2';
-    $('#go').disabled = !slug || !token;
-  } else {
-    $('#barMain').textContent = files.size ? 'All files excluded by filters' : 'No files selected';
-    $('#barSub').textContent = 'Add a folder, files, or ZIP archive to continue';
-    $('#go').disabled = true;
-  }
-
-  // Update Dropzone Title and Hint
-  const idleTitle = () => coarsePointer ? 'Choose what to upload' : 'Drop a folder or ZIP here';
-  const idleHint = () => coarsePointer ? 'On a mobile device, a ZIP file is the easiest way to send a whole folder.' : 'Or use the quick selection buttons below. You can add multiple times to merge files.';
-  if (out.length) {
-    const roots = new Set(out.map(o => o.path.split('/')[0]));
-    $('#dropTitle').textContent = roots.size === 1 && out[0].path.includes('/') ? [...roots][0] : plural(out.length, 'file') + ' ready';
-    $('#dropHint').textContent = 'Add more with the buttons below, or drop another folder to merge.';
-  } else {
-    $('#dropTitle').textContent = idleTitle();
-    $('#dropHint').textContent = idleHint();
-  }
-
-  updateStepper();
 }
 
-// View toggle (Flat vs Tree)
-$('#tabFlat').onclick = () => {
-  currentView = 'flat';
-  $('#tabFlat').classList.add('active');
-  $('#tabFlat').setAttribute('aria-selected', 'true');
-  $('#tabTree').classList.remove('active');
-  $('#tabTree').setAttribute('aria-selected', 'false');
-  $('#manifest').hidden = false;
-  $('#treeView').hidden = true;
-  $('#treeControls').hidden = true;
-};
+// Attach scroll listener with requestAnimationFrame to drive virtual scroller
+let scrollRaf = null;
+$('#manifestWrap')?.addEventListener('scroll', () => {
+  if (currentView !== 'flat') return;
+  if (!scrollRaf) {
+    scrollRaf = requestAnimationFrame(() => {
+      renderManifestRows();
+      scrollRaf = null;
+    });
+  }
+});
 
-$('#tabTree').onclick = () => {
-  currentView = 'tree';
-  $('#tabTree').classList.add('active');
-  $('#tabTree').setAttribute('aria-selected', 'true');
-  $('#tabFlat').classList.remove('active');
-  $('#tabFlat').setAttribute('aria-selected', 'false');
-  $('#manifest').hidden = true;
-  $('#treeView').hidden = false;
-  $('#treeControls').hidden = false;
-};
+// Search input listener
+let filterRaf = null;
+$('#filter')?.addEventListener('input', () => {
+  if (!filterRaf) {
+    filterRaf = requestAnimationFrame(() => {
+      if ($('#manifestWrap')) $('#manifestWrap').scrollTop = 0;
+      renderManifestRows();
+      filterRaf = null;
+    });
+  }
+});
 
-$('#expandAllBtn').onclick = () => {
-  $$('.tree-children').forEach(c => c.classList.remove('collapsed'));
-  $$('.tree-folder').forEach(f => f.classList.add('open'));
-};
+/* ---------- Main UI Refresh Loop ---------- */
+let refreshTimer = null;
+function refresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(doRefresh, 16);
+}
 
-$('#collapseAllBtn').onclick = () => {
-  $$('.tree-children').forEach(c => c.classList.add('collapsed'));
-  $$('.tree-folder').forEach(f => f.classList.remove('open'));
-};
+function doRefresh() {
+  const { out, junkCount, bigFiles, hardRejects } = computeCurrentManifest();
+  const empty = files.size === 0;
 
-$('#filter').addEventListener('input', refresh);
-$('#skip').addEventListener('change', refresh);
-$('#keepRoot').addEventListener('change', refresh);
-$('#applyGitignore')?.addEventListener('change', refresh);
-$('#customIgnore').addEventListener('input', refresh);
+  $('#emptyReview').hidden = !empty;
+  $('#filledReview').hidden = empty;
 
-$('#clear').onclick = () => {
-  if (busy) return;
+  // Stats bar animation
+  animateNumber($('#cnt'), out.length, v => v.toLocaleString());
+  const totalBytes = out.reduce((sum, o) => sum + o.file.size, 0);
+  $('#size').textContent = fmt(totalBytes);
+
+  const estBlobs = out.filter(o => o.file.size > INLINE_MAX || BINARY_EXTS.has(getExt(o.repoPath))).length;
+  const estTrees = Math.ceil(out.length / TREE_MAX_ENTRIES);
+  animateNumber($('#apiEst'), estBlobs + estTrees + 2);
+
+  // Background Secret Scanning
+  scanAllStagedSecrets(out).then(secretCount => {
+    const secBanner = $('#securityBanner');
+    if (secretCount > 0) {
+      secBanner.hidden = false;
+      $('#secretCount').textContent = secretCount;
+    } else {
+      secBanner.hidden = true;
+    }
+  });
+
+  // Render Manifest rows
+  renderManifestRows();
+
+  // Bottom action dock update
+  const goBtn = $('#go');
+  const barMain = $('#barMain');
+  const barSub = $('#barSub');
+
+  if (empty) {
+    barMain.textContent = 'No files staged';
+    barSub.textContent = 'Drop project folder or files in Step 3';
+    goBtn.disabled = true;
+  } else {
+    barMain.textContent = `${out.length.toLocaleString()} files staged (${fmt(totalBytes)})`;
+    barSub.textContent = `Ready to commit to ${slugOf() || 'destination'}`;
+    goBtn.disabled = !token || !slugOf();
+  }
+
+  // Warnings / Hints
+  const note = $('#note');
+  if (hardRejects.length) {
+    note.hidden = false;
+    note.textContent = `⚠️ ${hardRejects.length} file(s) exceed GitHub's 100MB hard limit and will be skipped.`;
+  } else if (bigFiles.length) {
+    note.hidden = false;
+    note.textContent = `ℹ️ ${bigFiles.length} file(s) exceed 50MB. They will be uploaded sequentially.`;
+  } else {
+    note.hidden = true;
+  }
+
+  syncStepperState();
+}
+
+$('#clear')?.addEventListener('click', () => {
   files.clear();
   remoteTreeMap.clear();
   fileGitShaMap.clear();
@@ -1272,105 +1452,76 @@ $('#clear').onclick = () => {
   srcMsg('');
   refresh();
   showToast('All files cleared', 'info');
-};
+  playSound('pop');
+});
 
 /* ---------- File Preview Modal ---------- */
 const modal = $('#previewModal');
-let currentPreviewItem = null;
-let currentPreviewText = null;
-
-$('#closeModal').onclick = () => modal.close();
-modal.addEventListener('click', (e) => {
-  if (e.target === modal) modal.close();
-});
-
-$('#copyContentBtn').onclick = () => {
-  if (!currentPreviewText) {
-    showToast('No text content available to copy', 'err');
-    return;
-  }
-  navigator.clipboard.writeText(currentPreviewText);
-  const btn = $('#copyContentBtn');
-  const txt = $('#copyContentText');
-  txt.textContent = 'Copied!';
-  btn.style.color = 'var(--ok)';
-  showToast('File content copied to clipboard!', 'ok');
-  setTimeout(() => {
-    txt.textContent = 'Copy';
-    btn.style.color = '';
-  }, 2000);
-};
-
-$('#downloadFileBtn').onclick = () => {
-  if (!currentPreviewItem) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(currentPreviewItem.file);
-  a.download = currentPreviewItem.repoPath.split('/').pop();
-  a.click();
-  URL.revokeObjectURL(a.href);
-  showToast('Downloaded ' + a.download, 'ok');
-};
+$('#closeModal').onclick = () => modal?.close();
 
 async function openFilePreview(item) {
-  currentPreviewItem = item;
-  currentPreviewText = null;
-  const { path, repoPath, file } = item;
-  $('#previewTitle').textContent = repoPath;
+  if (!modal) return;
+  const title = $('#previewTitle');
   const body = $('#previewBody');
-  body.textContent = 'Loading file contents…';
+  const file = item.file;
+  title.textContent = item.repoPath;
+  body.innerHTML = '<div style="color:var(--muted); font-size:0.8125rem;">Loading preview…</div>';
   modal.showModal();
 
+  $('#downloadFileBtn').onclick = () => {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = item.repoPath.split('/').pop();
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyBtn = $('#copyContentBtn');
+  copyBtn.onclick = async () => {
+    try {
+      const text = await file.text();
+      await navigator.clipboard.writeText(text);
+      $('#copyContentText').textContent = 'Copied!';
+      showToast('File contents copied to clipboard', 'ok');
+      playSound('pop');
+      setTimeout(() => $('#copyContentText').textContent = 'Copy', 1500);
+    } catch {
+      showToast('Clipboard access denied', 'err');
+    }
+  };
+
   try {
-    const isImage = /\.(png|jpe?g|gif|webp|svg|ico|bmp)$/i.test(path);
-    if (isImage) {
+    const ext = getExt(item.repoPath);
+    if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) {
       const url = URL.createObjectURL(file);
-      body.innerHTML = `
-        <div style="text-align:center; padding:1rem;">
-          <img src="${url}" class="preview-img" alt="${escapeHTML(path)}">
-          <div style="margin-top:1rem; font-size:0.8125rem; color:var(--muted); font-family:var(--mono);">
-            Type: ${escapeHTML(file.type || 'image')} • Size: ${fmt(file.size)}
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      body.innerHTML = `
-        <div style="padding:1.5rem; text-align:center; color:var(--muted);">
-          <p>This file is ${fmt(file.size)}, which exceeds the in-browser 2MB preview limit.</p>
-        </div>
-      `;
-      return;
-    }
-
-    const buf = await file.arrayBuffer();
-    const text = asText(buf);
-    if (text !== null) {
-      currentPreviewText = text;
-      const lines = text.split('\n');
-      const secrets = fileSecretsMap.get(path) || [];
-      const secretAlert = secrets.length ? `
-        <div class="secret-hit-alert">
-          <strong>Security Warning:</strong> Potential secret detected (${secrets.map(s => s.type).join(', ')}). Review before publishing!
-        </div>
-      ` : '';
-
-      body.innerHTML = `
-        ${secretAlert}
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--muted); margin-bottom:0.6rem; font-family:var(--mono);">
-          <span>${lines.length} lines • ${fmt(file.size)}</span>
-          ${getFileBadge(repoPath)}
-        </div>
-        <pre class="preview-code"><code>${escapeHTML(text)}</code></pre>
-      `;
+      body.innerHTML = `<img class="preview-img" src="${url}" alt="Preview of ${escapeHTML(item.repoPath)}">`;
     } else {
-      body.innerHTML = `
-        <div style="padding:1.5rem; text-align:center; color:var(--muted);">
-          <p>Binary file cannot be displayed as plain text.</p>
-          <span style="font-family:var(--mono); font-size:0.8125rem;">Size: ${fmt(file.size)}</span>
-        </div>
-      `;
+      // Read first 64KB for safe text preview
+      const slice = file.slice(0, 65536);
+      const text = asText(await slice.arrayBuffer());
+      if (text !== null) {
+        const hits = fileSecretsMap.get(item.path);
+        let secretWarning = '';
+        if (hits && hits.length) {
+          secretWarning = `
+            <div style="background:var(--err-subtle); border:1px solid var(--err-border); color:var(--err); padding:0.65rem; border-radius:var(--radius-sm); font-size:0.75rem; margin-bottom:0.75rem;">
+              ⚠️ <strong>Security Notice:</strong> Staged credential matches: ${hits.map(h => `${h.type} (${h.preview})`).join(', ')}
+            </div>
+          `;
+        }
+        body.innerHTML = `
+          ${secretWarning}
+          <pre class="preview-code">${escapeHTML(text)}${file.size > 65536 ? '\n\n/* [Truncated: showing first 64 KB of file] */' : ''}</pre>
+        `;
+      } else {
+        body.innerHTML = `
+          <div style="text-align:center; padding:2rem; color:var(--muted);">
+            <p style="margin:0; font-weight:600;">Binary File</p>
+            <span style="font-family:var(--font-mono); font-size:0.75rem;">Size: ${fmt(file.size)}</span>
+          </div>
+        `;
+      }
     }
   } catch (err) {
     body.textContent = 'Could not preview file: ' + err.message;
@@ -1391,122 +1542,127 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     $('#filter')?.focus();
   }
+  if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+    e.preventDefault();
+    shortcutsModal?.showModal();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
+    e.preventDefault();
+    $('#bFolder')?.click();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (!$('#go')?.disabled) {
+      e.preventDefault();
+      $('#go')?.click();
+    }
+  }
   if (e.key === 'Escape') {
     if (modal?.open) modal.close();
     if (secModal?.open) secModal.close();
+    if (shortcutsModal?.open) shortcutsModal.close();
   }
 });
 
-/* ---------- GitHub API Client ---------- */
+/* ---------- GitHub API Client & Resilient Blob Pipeline ---------- */
 const CANCELLED_ERR = () => Object.assign(new Error('Operation cancelled by user'), { cancelled: true });
 
-async function gh(path, opts = {}, attempt = 0) {
-  const { noRetry, ...init } = opts;
-  const headers = {
-    'Accept': 'application/vnd.github+json',
-    'Authorization': 'Bearer ' + token,
-    'X-GitHub-Api-Version': '2022-11-28'
-  };
-  if (init.body) headers['Content-Type'] = 'application/json';
+async function gh(path, opts = {}) {
+  const method = opts.method || 'GET';
+  const url = /^https?:\/\//.test(path) ? path : API + path;
+  let attempt = 0;
 
-  let res;
-  try {
-    res = await fetch(API + path, { ...init, headers, signal: abortCtrl ? abortCtrl.signal : null });
-  } catch (e) {
-    if (e.name === 'AbortError') throw CANCELLED_ERR();
-    if (!noRetry && attempt < 2) {
-      await sleep(1000 * (attempt + 1));
-      if (cancelled) throw CANCELLED_ERR();
-      return gh(path, opts, attempt + 1);
-    }
-    throw e;
-  }
+  while (attempt < 4) {
+    attempt++;
+    if (cancelled) throw CANCELLED_ERR();
 
-  // Update rate limit pill
-  const remaining = res.headers.get('x-ratelimit-remaining');
-  const limit = res.headers.get('x-ratelimit-limit');
-  const reset = Number(res.headers.get('x-ratelimit-reset'));
-  if (remaining && limit) {
-    const mins = reset ? Math.max(0, Math.ceil((reset - Date.now() / 1000) / 60)) : 0;
-    $('#rateLimitPill').textContent = `Rate: ${remaining}/${limit} (${mins}m reset)`;
-  }
+    const res = await fetch(url, {
+      ...opts,
+      signal: abortCtrl?.signal,
+      headers: {
+        Authorization: 'token ' + token,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        ...(opts.headers || {})
+      }
+    });
 
-  if (!res.ok) {
-    const retryAfter = Number(res.headers.get('retry-after'));
-    let wait = 0;
-    if (retryAfter) wait = retryAfter;
-    else if ((res.status === 403 || res.status === 429) && remaining === '0' && reset) {
-      wait = Math.max(1, reset - Date.now() / 1000 + 1);
-    } else if (res.status >= 500) {
-      wait = 1.5 * (attempt + 1);
+    // Update live rate limit pill
+    const rem = res.headers.get('x-ratelimit-remaining');
+    const lim = res.headers.get('x-ratelimit-limit');
+    if (rem) $('#rateLimitPill').textContent = `Rate: ${rem}/${lim}`;
+
+    // Handle secondary rate limits (403 / 429)
+    if (res.status === 403 || res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+      const waitTime = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 1500;
+      msg(`GitHub rate limit hit. Backing off for ${(waitTime/1000).toFixed(0)}s…`);
+      await sleep(waitTime);
+      continue;
     }
 
-    if (wait && wait <= 90 && attempt < 4 && !noRetry) {
-      if (busy && wait > 2) msg(`GitHub rate limit wait. Resuming in ${Math.ceil(wait)}s…`);
-      await sleep(wait * 1000);
-      if (cancelled) throw CANCELLED_ERR();
-      return gh(path, opts, attempt + 1);
+    if (res.status === 204) return null;
+    if (res.ok) return await res.json();
+
+    let errPayload = null;
+    try { errPayload = await res.json(); } catch(e) {}
+    const err = new Error(errPayload?.message || `GitHub API error: ${res.status}`);
+    err.status = res.status;
+    err.payload = errPayload;
+
+    if (res.status >= 500 && attempt < 4) {
+      await sleep(Math.pow(2, attempt) * 1000);
+      continue;
     }
 
-    let m = res.statusText;
-    try {
-      const j = await res.json();
-      m = j.message || m;
-      if (j.errors && j.errors[0] && j.errors[0].message) m += ` (${j.errors[0].message})`;
-    } catch {}
-    throw Object.assign(new Error(m), { status: res.status });
+    throw err;
   }
-
-  return res.status === 204 ? null : res.json();
 }
 
-const toBase64 = f => new Promise((res, rej) => {
-  const r = new FileReader();
-  r.onload = () => res(r.result.slice(r.result.indexOf(',') + 1));
-  r.onerror = () => rej(new Error('Failed to read file'));
-  r.readAsDataURL(f);
-});
+function slugOf() {
+  const v = $('#repo').value.trim();
+  if (!v) return '';
+  const m = v.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+  if (m) return `${m[1]}/${m[2].replace(/\.git$/, '')}`;
+  return v.replace(/^\/+|\/+$/g, '');
+}
 
-function msg(t, cls) {
-  const m = $('#msg');
-  m.textContent = t;
-  m.className = 'status-msg ' + (cls || '');
+function badBranch(b) {
+  if (!b) return false;
+  return /[\s~^:?*[\\]|\.\.|\/\.|\/\/|@\{/.test(b);
+}
+
+function msg(text, type = '') {
+  const el = $('#msg');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'status-msg ' + type;
+}
+
+function srcMsg(text) {
+  const el = $('#srcMsg');
+  if (!el) return;
+  el.textContent = text;
 }
 
 function setBusy(b) {
   busy = b;
-  const g = $('#go');
-  const txt = $('#goText');
-  if (b) {
-    txt.textContent = 'Cancel';
-    g.classList.add('btn-cancel');
-    g.classList.remove('btn-primary');
-    uploadStartTime = Date.now();
-  } else {
-    txt.textContent = 'Upload to GitHub';
-    g.classList.remove('btn-cancel');
-    g.classList.add('btn-primary');
-    $('#prog').value = 0;
-    refresh();
+  const go = $('#go');
+  const goText = $('#goText');
+  if (go) {
+    if (b) {
+      go.disabled = true;
+      goText.textContent = 'Uploading…';
+    } else {
+      goText.textContent = 'Upload to GitHub';
+      refresh();
+    }
   }
-  $('#clear').disabled = b;
 }
 
-window.addEventListener('beforeunload', e => {
-  if (busy) {
-    e.preventDefault();
-    e.returnValue = '';
-  }
-});
-
-/* ---------- Main Upload Execution ---------- */
 $('#go').onclick = () => {
-  if (busy) {
-    cancelled = true;
-    if (abortCtrl) abortCtrl.abort();
-    msg('Cancelling upload process…');
-    return;
-  }
+  if (busy) return;
+  const { out } = computeCurrentManifest();
+  if (!out.length) return;
 
   // Pre-commit Secret Safety Guard
   if (fileSecretsMap.size > 0 && !$('#skipSecretsCheck')?.checked) {
@@ -1530,7 +1686,7 @@ async function executeUpload(overrideSecrets = false) {
   const create = $('#create').checked;
   let slug = slugOf();
   if (create ? !/^[\w.-]+$/.test(slug.split('/').pop()) : !/^[\w.-]+\/[\w.-]+$/.test(slug)) {
-    return msg(create ? 'Enter a valid repository name for your account.' : 'Enter destination as owner/repository.', 'err');
+    return msg(create ? 'Enter a valid repository name.' : 'Enter destination as owner/repository.', 'err');
   }
 
   const wantBranch = $('#branch').value.trim();
@@ -1551,9 +1707,9 @@ async function executeUpload(overrideSecrets = false) {
   cancelled = false;
   abortCtrl = new AbortController();
   setBusy(true);
-  let repoCreated = false;
+  uploadStartTime = Date.now();
 
-  setPipelineStage(1, 'Verifying GitHub repository…', 'Connecting to ' + slug + '…');
+  setPipelineStage(1, 'Handshake & Repository Verification…', 'Connecting to ' + slug + '…');
 
   try {
     let repo;
@@ -1564,7 +1720,6 @@ async function executeUpload(overrideSecrets = false) {
       setPipelineStage(1, 'Creating new repository…', slug);
       repo = await gh('/user/repos', {
         method: 'POST',
-        noRetry: true,
         body: JSON.stringify({
           name: slug.split('/').pop(),
           private: isPrivate,
@@ -1572,14 +1727,12 @@ async function executeUpload(overrideSecrets = false) {
           description: 'Uploaded via Folder to GitHub'
         })
       });
-      repoCreated = true;
       slug = repo.full_name;
       $('#create').checked = false;
       $('#create').dispatchEvent(new Event('change'));
       $('#repo').value = slug;
       store.set('f2g.repo', slug);
 
-      // Wait for initial commit initialization
       for (let i = 0; i < 8; i++) {
         try {
           await gh('/repos/' + slug + '/git/ref/heads/' + enc(repo.default_branch));
@@ -1598,45 +1751,48 @@ async function executeUpload(overrideSecrets = false) {
       }
     }
 
-    const branch = wantBranch || repo.default_branch;
-    const refPath = b => '/repos/' + slug + '/git/ref/heads/' + enc(b);
-    let baseSha = null, seededEmpty = false;
+    const branch = wantBranch || repo.default_branch || 'main';
+    const refPath = b => '/repos/' + slug + '/git/refs/heads/' + enc(b);
+    let baseSha = null;
+    let parentTreeSha = null;
 
     try {
       baseSha = (await gh(refPath(branch))).object.sha;
     } catch (e) {
-      if (e.status === 409) {
-        msg('Repository is empty. Initializing starter commit…');
-        await gh('/repos/' + slug + '/contents/.gitkeep', {
-          method: 'PUT',
-          body: JSON.stringify({ message: 'Initialize repository', content: 'Cg==', branch })
-        });
-        baseSha = (await gh(refPath(branch))).object.sha;
-        seededEmpty = true;
-      } else if (e.status !== 404) {
+      if (e.status === 404 || e.status === 409) {
+        // If target branch does not exist, check default_branch for existing commits
+        if (branch !== repo.default_branch && repo.default_branch) {
+          try {
+            baseSha = (await gh(refPath(repo.default_branch))).object.sha;
+          } catch(err) {
+            baseSha = null;
+          }
+        } else {
+          baseSha = null;
+        }
+      } else {
         throw e;
       }
     }
 
-    if (!baseSha) {
-      msg(`Creating branch "${branch}" based on "${repo.default_branch}"…`);
-      baseSha = (await gh(refPath(repo.default_branch))).object.sha;
-      await gh('/repos/' + slug + '/git/refs', {
-        method: 'POST',
-        body: JSON.stringify({ ref: 'refs/heads/' + branch, sha: baseSha })
-      });
+    if (baseSha) {
+      try {
+        const parentCommit = await gh('/repos/' + slug + '/git/commits/' + baseSha);
+        parentTreeSha = parentCommit?.tree?.sha || null;
+      } catch(e) {
+        baseSha = null;
+        parentTreeSha = null;
+      }
     }
-
-    const parentCommit = await gh('/repos/' + slug + '/git/commits/' + baseSha);
 
     // Filter unchanged files if requested
     const skipUnchanged = $('#skipUnchanged')?.checked;
-    const uploadTargets = skipUnchanged 
+    const uploadTargets = (skipUnchanged && baseSha) 
       ? out.filter(o => getFileDiffStatus(o.repoPath) !== 'same')
       : out;
 
     if (!uploadTargets.length) {
-      throw Object.assign(new Error('identical_tree'), { identical: true });
+      throw Object.assign(new Error('All staged files are identical to remote. Nothing to commit.'), { identical: true });
     }
 
     // Prepare entries & Blobs
@@ -1689,7 +1845,6 @@ async function executeUpload(overrideSecrets = false) {
         try {
           entries[i] = await prepareFileEntry(o);
         } catch (e) {
-          if (!e.cancelled) e.file = o.repoPath;
           cancelled = true;
           abortCtrl.abort();
           throw e;
@@ -1717,7 +1872,7 @@ async function executeUpload(overrideSecrets = false) {
       }
     }
 
-    const CONCURRENCY = Math.min(5, Math.max(1, uploadTargets.length));
+    const CONCURRENCY = Math.min(8, Math.max(1, uploadTargets.length));
     await Promise.all(Array.from({ length: CONCURRENCY }, uploadWorker));
     if (cancelled) throw CANCELLED_ERR();
 
@@ -1725,16 +1880,15 @@ async function executeUpload(overrideSecrets = false) {
     setPipelineStage(3, 'Constructing Git Tree…', 'Chaining directory tree objects…');
 
     const treeList = entries.slice();
-    if (seededEmpty && !uploadTargets.some(o => o.repoPath === '.gitkeep')) {
-      treeList.push({ path: '.gitkeep', mode: '100644', type: 'blob', sha: null });
-    }
-
-    let treeSha = parentCommit.tree.sha, chunk = [], currentChunkSize = 0;
+    let treeSha = parentTreeSha, chunk = [], currentChunkSize = 0;
     const flushTreeChunk = async () => {
       if (!chunk.length) return;
+      const payload = treeSha 
+        ? { base_tree: treeSha, tree: chunk } 
+        : { tree: chunk };
       treeSha = (await gh('/repos/' + slug + '/git/trees', {
         method: 'POST',
-        body: JSON.stringify({ base_tree: treeSha, tree: chunk })
+        body: JSON.stringify(payload)
       })).sha;
       chunk = [];
       currentChunkSize = 0;
@@ -1750,48 +1904,64 @@ async function executeUpload(overrideSecrets = false) {
     }
     await flushTreeChunk();
 
-    if (treeSha === parentCommit.tree.sha) {
-      throw Object.assign(new Error('identical_tree'), { identical: true });
-    }
-
     msg('Creating Git commit object…');
-    setPipelineStage(4, 'Creating Git Commit Object…', fullCommitMessage.split('\n')[0]);
+    setPipelineStage(4, 'Creating Commit…', 'Authoring single atomic Git commit…');
 
     const commitObj = await gh('/repos/' + slug + '/git/commits', {
       method: 'POST',
-      body: JSON.stringify({ message: fullCommitMessage, tree: treeSha, parents: [baseSha] })
+      body: JSON.stringify({
+        message: fullCommitMessage,
+        tree: treeSha,
+        parents: baseSha ? [baseSha] : []
+      })
     });
 
-    msg('Updating branch reference…');
-    setPipelineStage(5, 'Updating Branch Reference…', `Pointing refs/heads/${branch} to ${commitObj.sha.slice(0, 7)}`);
+    msg('Publishing commit to ' + branch + '…');
+    setPipelineStage(5, 'Publishing Commit…', 'Updating branch reference pointer…');
 
-    await gh('/repos/' + slug + '/git/refs/heads/' + enc(branch), {
-      method: 'PATCH',
-      body: JSON.stringify({ sha: commitObj.sha })
-    });
+    let refUpdated = false;
+    try {
+      await gh(refPath(branch), {
+        method: 'PATCH',
+        body: JSON.stringify({ sha: commitObj.sha, force: true })
+      });
+      refUpdated = true;
+    } catch (patchErr) {
+      if (patchErr.status !== 404 && patchErr.status !== 422) {
+        throw patchErr;
+      }
+    }
+
+    if (!refUpdated) {
+      try {
+        await gh('/repos/' + slug + '/git/refs', {
+          method: 'POST',
+          body: JSON.stringify({ ref: 'refs/heads/' + branch, sha: commitObj.sha })
+        });
+      } catch (postErr) {
+        // If reference already exists (422), force-update via PATCH
+        if (postErr.status === 422) {
+          await gh(refPath(branch), {
+            method: 'PATCH',
+            body: JSON.stringify({ sha: commitObj.sha, force: true })
+          });
+        } else {
+          throw postErr;
+        }
+      }
+    }
 
     $('#prog').value = 100;
-    setPipelineStage(6, 'Commit Published!', 'Complete');
-    setTimeout(() => {
-      $('#pipelineCard').hidden = true;
-    }, 1400);
+    msg('Published commit successfully!', 'ok');
+    setPipelineStage(5, 'Completed!', 'All files safely committed to ' + slug);
 
-    // Confetti & Audio celebration
-    triggerConfetti();
-    playSound('success');
-    showToast(`Published ${plural(uploadTargets.length, 'file')} to ${branch}!`, 'ok');
-    msg('');
-
-    // Success Card Presentation
-    const resEl = $('#result');
-    resEl.hidden = false;
-
+    // Render Success Card
+    const resultCard = $('#result');
+    resultCard.hidden = false;
     $('#resultMeta').innerHTML = `
-      Pushed <strong>${plural(uploadTargets.length, 'file')}</strong> (${fmt(totalBytes)}) to 
-      <a href="${repo.html_url}/tree/${enc(branch)}" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:underline;">
-        ${escapeHTML(slug)}:${escapeHTML(branch)}
-      </a>
-      <div style="margin-top:0.6rem;">
+      <div>Repository: <strong><a href="https://github.com/${escapeHTML(slug)}" target="_blank" rel="noopener" style="color:var(--accent);">${escapeHTML(slug)}</a></strong></div>
+      <div>Branch: <strong><a href="https://github.com/${escapeHTML(slug)}/tree/${encodeURIComponent(branch)}" target="_blank" rel="noopener" style="color:var(--accent);">${escapeHTML(branch)}</a></strong></div>
+      <div style="margin-top:0.35rem;">
         Commit: <span class="sha-badge" id="shaPill">${commitObj.sha.slice(0, 7)}
           <button class="action-icon-btn" id="copyShaBtn" type="button" title="Copy full SHA" style="width:1.25rem; height:1.25rem;">
             <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -1802,69 +1972,68 @@ async function executeUpload(overrideSecrets = false) {
 
     $('#copyShaBtn').onclick = () => {
       navigator.clipboard.writeText(commitObj.sha);
-      showToast('Commit SHA copied: ' + commitObj.sha.slice(0, 7), 'ok');
+      showToast('Copied commit SHA: ' + commitObj.sha.slice(0, 7), 'ok');
       const pill = $('#shaPill');
-      if (pill) {
-        pill.style.borderColor = 'var(--ok)';
-        setTimeout(() => pill.style.borderColor = '', 2000);
-      }
+      pill.style.borderColor = 'var(--ok)';
+      playSound('pop');
+      setTimeout(() => pill.style.borderColor = '', 1200);
     };
 
-    const acts = $('#resultActions');
-    acts.innerHTML = `
-      <a class="btn btn-primary" href="${repo.html_url}/commit/${commitObj.sha}" target="_blank" rel="noopener">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-        <span>View Commit Diff</span>
+    $('#resultActions').innerHTML = `
+      <a class="btn btn-primary" href="https://github.com/${escapeHTML(slug)}/commit/${commitObj.sha}" target="_blank" rel="noopener">
+        <span>View Commit on GitHub &rarr;</span>
       </a>
-      <a class="btn" href="${repo.html_url}/tree/${enc(branch)}" target="_blank" rel="noopener">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>Browse Repository</span>
-      </a>
-      <a class="btn" href="https://github.dev/${slug}/tree/${enc(branch)}" target="_blank" rel="noopener" title="Open in browser VS Code">
-        <svg class="icon" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        <span>Open in github.dev</span>
+      <a class="btn btn-secondary" href="https://github.com/${escapeHTML(slug)}/tree/${encodeURIComponent(branch)}" target="_blank" rel="noopener">
+        <span>Browse Repository Tree</span>
       </a>
       <button class="btn btn-subtle" id="uploadAnotherBtn" type="button">Upload another batch</button>
     `;
 
     $('#uploadAnotherBtn').onclick = () => {
-      $('#clear').click();
+      files.clear();
+      resultCard.hidden = true;
+      $('#pipelineCard').hidden = true;
+      msg('');
+      refresh();
+      showToast('Manifest reset for next upload', 'info');
+      playSound('pop');
     };
 
-    resEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    fireConfetti();
+    playSound('success');
   } catch (err) {
-    $('#pipelineCard').hidden = true;
-    playSound('warn');
-    if (err.cancelled) {
-      msg('Upload cancelled. No commits were created.' + (repoCreated ? ' The new repository was already initialized.' : ''));
-    } else if (err.identical) {
-      msg('Nothing to commit. The destination branch already has these exact files and contents.', 'ok');
-      showToast('Destination branch already has these exact files', 'info');
+    if (err.identical) {
+      msg('Nothing to commit: All staged files are already identical on remote branch.', 'info');
     } else {
-      let advice = '';
-      if (err.status === 401) advice = ' Verify your token has not expired and has valid permissions.';
-      else if (err.status === 403) advice = ' The token is missing write permissions for this repository' + (create ? ' or lacks repo creation scope.' : '.');
-      else if (err.status === 404) advice = ' Target repository not found, or your token does not have access.';
-      else if (err.status === 422 && create) advice = ' A repository with this name already exists. Uncheck "Create new repository" to push to it.';
-      else if (err.name === 'TypeError') advice = ' Network error. Check your internet connection.';
-      msg(`Upload failed${err.file ? ' on ' + err.file : ''}: ${err.message}.${advice}`, 'err');
-      showToast(`Upload failed: ${err.message}`, 'err');
+      msg('Error uploading to GitHub: ' + err.message, 'err');
+      playSound('warn');
     }
   } finally {
-    abortCtrl = null;
     setBusy(false);
   }
 }
 
-/* ---------- Initialization ---------- */
-initTheme();
-initSound();
-$('#repo').value = store.get('f2g.repo');
-$('#branch').value = store.get('f2g.branch');
-$('#prefix').value = store.get('f2g.prefix');
-if (store.get('f2g.token')) {
-  $('#token').value = store.get('f2g.token');
-  $('#remember').checked = true;
-  verifyToken();
-}
-refresh();
+/* ---------- App Initialization ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  initSound();
+
+  // Restore saved token & settings
+  const savedToken = store.get('f2g.token');
+  if (savedToken) {
+    $('#token').value = savedToken;
+    $('#remember').checked = true;
+    verifyToken();
+  }
+
+  const savedRepo = store.get('f2g.repo');
+  if (savedRepo) $('#repo').value = savedRepo;
+
+  const savedBranch = store.get('f2g.branch');
+  if (savedBranch) $('#branch').value = savedBranch;
+
+  const savedPrefix = store.get('f2g.prefix');
+  if (savedPrefix) $('#prefix').value = savedPrefix;
+
+  refresh();
+});

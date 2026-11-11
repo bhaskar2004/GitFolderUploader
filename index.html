@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Upload an entire folder, files, or a ZIP archive to any GitHub repository as a clean single commit directly from your browser.">
-<title>Folder to GitHub — Browser Git Uploader</title>
+<meta name="description" content="Direct in-browser commit engine. Upload folders, files, or ZIP bundles as single Git commits directly to GitHub without cloning.">
+<title>Folder to GitHub — Precision Git Commit Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 <script>
   (function(){
@@ -27,79 +27,86 @@
 <!-- Drag & Drop Global Overlay -->
 <div class="drop-overlay" aria-hidden="true">
   <div class="drop-overlay-box">
-    <svg class="icon icon-lg" style="color:var(--accent); width:3rem; height:3rem; margin-bottom:0.75rem;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <div style="font-family:var(--display); font-weight:750; font-size:1.5rem; color:var(--ink);">Drop folder or ZIP here</div>
-    <div style="color:var(--muted); font-size:0.875rem; margin-top:0.25rem;">Release to scan and prepare files for upload</div>
+    <svg class="icon icon-lg" style="color:var(--accent); width:2.75rem; height:2.75rem; margin-bottom:0.75rem;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div style="font-weight:700; font-size:1.25rem; color:var(--ink);">Drop project directory or ZIP</div>
+    <div style="color:var(--muted); font-size:0.8125rem; margin-top:0.25rem;">Release to scan and stage files directly into your browser manifest</div>
   </div>
 </div>
 
 <main class="container">
   <!-- Header -->
   <header class="header">
-    <a href="#" class="brand">
+    <div class="brand">
       <div class="brand-icon" aria-hidden="true">
         <svg class="icon" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg>
       </div>
       <div>
-        <h1 class="brand-title">Folder to GitHub <span class="badge-tag">v2.0</span></h1>
-        <p class="brand-sub">Direct in-browser commit engine. Client-side, private, lightning fast.</p>
+        <h1 class="brand-title">
+          <span>Folder to GitHub</span>
+          <span class="badge-tag">v2.4</span>
+        </h1>
+        <p class="brand-sub">In-browser Git commit engine • 100% client-side Web Crypto &amp; Git trees</p>
       </div>
-    </a>
+    </div>
 
     <div class="header-actions">
-      <button class="theme-toggle" id="soundToggle" type="button" aria-label="Toggle sound feedback" title="Toggle audio feedback">
+      <button class="theme-toggle" id="shortcutsBtn" type="button" aria-label="Keyboard Shortcuts" title="Keyboard Shortcuts (?)">
+        <kbd>?</kbd>
+        <span>Keys</span>
+      </button>
+      <button class="theme-toggle" id="soundToggle" type="button" aria-label="Toggle sound feedback" title="Toggle audio cues">
         <svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         <span>Sound</span>
       </button>
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme" title="Toggle color theme">
         <svg class="icon icon-sm" id="themeIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <span id="themeLabel">Theme</span>
       </button>
     </div>
   </header>
 
-  <!-- Stepper Tabs -->
-  <nav class="stepper-nav" aria-label="Upload progress">
-    <div class="step-tab active" id="tab1">
+  <!-- Interactive Pipeline Stepper -->
+  <nav class="stepper-nav" aria-label="Upload pipeline stages">
+    <div class="step-tab active" id="tab1" role="button" tabindex="0">
       <span class="step-tab-num">1</span>
       <div>
         <div class="step-tab-text">Authenticate</div>
-        <span class="step-tab-desc">GitHub token</span>
+        <span class="step-tab-desc">PAT credentials</span>
       </div>
     </div>
-    <div class="step-tab" id="tab2">
+    <div class="step-tab" id="tab2" role="button" tabindex="0">
       <span class="step-tab-num">2</span>
       <div>
-        <div class="step-tab-text">Destination</div>
+        <div class="step-tab-text">Target Destination</div>
         <span class="step-tab-desc">Repo &amp; branch</span>
       </div>
     </div>
-    <div class="step-tab" id="tab3">
+    <div class="step-tab" id="tab3" role="button" tabindex="0">
       <span class="step-tab-num">3</span>
       <div>
         <div class="step-tab-text">Source Content</div>
-        <span class="step-tab-desc">Folder or ZIP</span>
+        <span class="step-tab-desc">Folder, files, ZIP</span>
       </div>
     </div>
-    <div class="step-tab" id="tab4">
+    <div class="step-tab" id="tab4" role="button" tabindex="0">
       <span class="step-tab-num">4</span>
       <div>
         <div class="step-tab-text">Review &amp; Push</div>
-        <span class="step-tab-desc">Single Git commit</span>
+        <span class="step-tab-desc">Diff &amp; commit</span>
       </div>
     </div>
   </nav>
 
   <div class="layout-grid">
-    <!-- Left Column: Steps 1 & 2 -->
+    <!-- Left Column: Authentication & Target -->
     <div>
-      <!-- Step 1: Connect -->
+      <!-- Step 1: Connect GitHub -->
       <section class="step-card" aria-labelledby="step1-title">
         <div class="step-card-header">
           <div class="step-badge">1</div>
           <div>
             <h2 class="step-title" id="step1-title">Connect GitHub</h2>
-            <p>Your token stays strictly inside your browser, communicating only with api.github.com.</p>
+            <p>Direct browser-to-GitHub communication via HTTPS. Tokens never leave client RAM.</p>
           </div>
         </div>
 
@@ -115,49 +122,49 @@
               <span>Show</span>
             </button>
           </div>
-          <span class="hint-text" id="tokenHelp">Requires <strong>Contents: Read and write</strong> (Fine-grained) or <strong>repo</strong> scope (Classic).</span>
+          <span class="hint-text" id="tokenHelp">Required scope: <strong>Contents: Read and write</strong> (Fine-grained) or <strong>repo</strong> (Classic).</span>
         </div>
 
         <!-- Authenticated Profile Card -->
         <div class="auth-status-card" id="authCard" hidden>
           <div class="auth-user-info">
-            <img class="auth-avatar" id="authAvatar" src="" alt="">
+            <img class="auth-avatar" id="authAvatar" src="" alt="User avatar">
             <div class="auth-details">
               <div class="auth-name" id="authName">@username</div>
               <div class="auth-meta">
                 <span id="authScopes">Connected</span>
-                <span class="rate-pill" id="rateLimitPill">Rate limit: --</span>
+                <span class="rate-pill" id="rateLimitPill">Rate: --</span>
               </div>
             </div>
           </div>
-          <button class="btn btn-sm btn-subtle" id="disconnectBtn" type="button" title="Disconnect and clear token">Disconnect</button>
+          <button class="btn btn-sm btn-subtle" id="disconnectBtn" type="button" title="Disconnect and wipe token">Disconnect</button>
         </div>
 
         <label class="checkbox-label">
           <input id="remember" type="checkbox">
-          <span>Remember token securely on this device <span class="hint-text">Saved in localStorage. Leave unchecked if using a shared workstation.</span></span>
+          <span>Remember token locally on this device <span class="hint-text">Saved in browser localStorage. Untick on shared computers.</span></span>
         </label>
       </section>
 
-      <!-- Step 2: Destination -->
+      <!-- Step 2: Target Destination -->
       <section class="step-card" aria-labelledby="step2-title">
         <div class="step-card-header">
           <div class="step-badge">2</div>
           <div>
             <h2 class="step-title" id="step2-title">Target Destination</h2>
-            <p>Pick an existing repository or create a fresh one instantly.</p>
+            <p>Select an existing repository, specify a branch, or provision a fresh repo.</p>
           </div>
         </div>
 
         <label class="checkbox-label">
           <input id="create" type="checkbox">
-          <span><strong>Create a new repository</strong> under your account</span>
+          <span><strong>Create new repository</strong> under authenticated account</span>
         </label>
 
         <div class="nested-options" id="privWrap" hidden>
           <label class="checkbox-label" style="margin-bottom:0;">
             <input id="private" type="checkbox" checked>
-            <span>Make this new repository <strong>Private</strong></span>
+            <span>Initialize as <strong>Private repository</strong></span>
           </label>
         </div>
 
@@ -166,18 +173,18 @@
           <input id="repo" type="text" list="repos" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner/repo or paste GitHub URL">
           <datalist id="repos"></datalist>
           <datalist id="branches"></datalist>
-          <span class="hint-text" id="repoHelp">Type <code>owner/repository</code>, paste any GitHub repo link, or pick from the dropdown.</span>
+          <span class="hint-text" id="repoHelp">Type <code>owner/repository</code>, paste URL, or select from dropdown.</span>
         </div>
 
         <div class="form-row">
           <div class="field">
             <label for="branch" class="field-label">Target Branch</label>
             <input id="branch" type="text" list="branches" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Default branch">
-            <span class="hint-text">Leave blank for default branch (main/master).</span>
+            <span class="hint-text">Leave blank for default (main/master).</span>
           </div>
 
           <div class="field">
-            <label for="prefix" class="field-label">Folder in Repo (Prefix)</label>
+            <label for="prefix" class="field-label">Subfolder Prefix</label>
             <input id="prefix" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Repository root">
             <div class="chips-row">
               <button class="chip" type="button" data-prefix="">/</button>
@@ -189,7 +196,7 @@
         </div>
 
         <div class="field">
-          <label for="commit" class="field-label">Commit Title</label>
+          <label for="commit" class="field-label">Commit Summary</label>
           <input id="commit" type="text" value="Upload files via Folder to GitHub">
         </div>
 
@@ -198,20 +205,20 @@
             <span>Commit Description (Optional)</span>
             <span class="label-aside">Extended commit message body</span>
           </label>
-          <textarea id="commitDesc" placeholder="Optional extended details about this commit..."></textarea>
+          <textarea id="commitDesc" placeholder="Optional extended release notes or commit details…"></textarea>
         </div>
       </section>
     </div>
 
-    <!-- Right Column: Steps 3 & 4 -->
+    <!-- Right Column: Source Content & Review Manifest -->
     <div>
-      <!-- Step 3: Choose what to upload -->
+      <!-- Step 3: Choose Content -->
       <section class="step-card" aria-labelledby="step3-title">
         <div class="step-card-header">
           <div class="step-badge">3</div>
           <div>
             <h2 class="step-title" id="step3-title">Choose Content</h2>
-            <p>Drop whole projects, nested folders, or ZIP bundles.</p>
+            <p>Drop folders, select individual files, or extract compressed ZIP archives.</p>
           </div>
         </div>
 
@@ -219,19 +226,19 @@
           <div class="drop-icon-wrap">
             <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
           </div>
-          <p class="drop-title" id="dropTitle">Drop a folder or ZIP here</p>
-          <p class="drop-subtitle" id="dropHint">Or use the quick selection buttons below. You can add multiple times to merge files.</p>
+          <p class="drop-title" id="dropTitle">Drop a project folder or ZIP archive here</p>
+          <p class="drop-subtitle" id="dropHint">Or use the high-speed selection buttons below. Successive drops will merge files.</p>
           
           <div class="source-buttons">
-            <button class="btn btn-source btn-primary" type="button" id="bFolder">
+            <button class="btn btn-source btn-primary" type="button" id="bFolder" title="Shortcut: ⌘O / Ctrl+O">
               <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
               <span>Select Folder</span>
             </button>
-            <button class="btn btn-source" type="button" id="bFiles">
+            <button class="btn btn-source btn-secondary" type="button" id="bFiles">
               <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               <span>Pick Files</span>
             </button>
-            <button class="btn btn-source" type="button" id="bZip">
+            <button class="btn btn-source btn-secondary" type="button" id="bZip">
               <svg class="icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               <span>Extract ZIP</span>
             </button>
@@ -243,16 +250,16 @@
         <input id="pFiles" type="file" multiple hidden>
         <input id="pZip" type="file" accept=".zip,application/zip" hidden>
 
-        <!-- Ignore rules & options -->
+        <!-- Ignore rules & Stack presets -->
         <div class="filters-box">
           <button class="filters-toggle" id="filterToggle" type="button" aria-expanded="false">
-            <span>Filter rules &amp; smart exclusions</span>
+            <span>Smart exclusions, presets &amp; .gitignore rules</span>
             <svg class="icon icon-sm" id="filterArrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="filters-content" id="filterContent" hidden>
             <label class="checkbox-label">
               <input id="skip" type="checkbox" checked>
-              <span><strong>Auto-skip clutter &amp; secrets</strong> (node_modules, .env, .DS_Store, private keys, dist)</span>
+              <span><strong>Auto-skip clutter &amp; secrets</strong> (node_modules, .env, .DS_Store, keys, dist, venv)</span>
             </label>
             <label class="checkbox-label" id="gitignoreOption" hidden>
               <input id="applyGitignore" type="checkbox" checked>
@@ -260,8 +267,9 @@
             </label>
             <label class="checkbox-label">
               <input id="keepRoot" type="checkbox">
-              <span><strong>Keep top-level folder name</strong> in destination path (otherwise puts contents directly)</span>
+              <span><strong>Keep top-level folder name</strong> in destination path (otherwise unpacks directly)</span>
             </label>
+            
             <span class="presets-label">Stack ignore presets:</span>
             <div class="chips-row">
               <button class="chip preset-chip" type="button" data-preset="node">Node / Next.js</button>
@@ -269,40 +277,42 @@
               <button class="chip preset-chip" type="button" data-preset="rust">Rust</button>
               <button class="chip preset-chip" type="button" data-preset="os">OS Clutter</button>
             </div>
+            
             <div class="field" style="margin-top:0.75rem;">
-              <label for="customIgnore" class="field-label" style="font-size:0.78125rem;">Custom ignore patterns (comma-separated globs)</label>
-              <input id="customIgnore" type="text" placeholder="*.log, coverage/, temp/, *.tmp" style="min-height:2.2rem; font-size:0.8125rem;">
+              <label for="customIgnore" class="field-label" style="font-size:0.75rem;">Custom ignore patterns (comma-separated globs)</label>
+              <input id="customIgnore" type="text" placeholder="*.log, coverage/, temp/, *.tmp" style="min-height:2.2rem; font-size:0.78125rem;">
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Step 4: Review -->
+      <!-- Step 4: Review Manifest -->
       <section class="step-card" aria-labelledby="step4-title">
         <div class="step-card-header">
           <div class="step-badge">4</div>
           <div>
             <h2 class="step-title" id="step4-title">Review Manifest</h2>
-            <p>Verify files, inspect individual items, and push to GitHub.</p>
+            <p>Inspect staged files, verify Git SHA diffs, and push to GitHub.</p>
           </div>
         </div>
 
         <div id="emptyReview" style="padding:2.5rem 1rem; text-align:center; color:var(--muted);">
-          <svg class="icon icon-lg" style="margin-bottom:0.75rem; color:var(--subtle); width:2.5rem; height:2.5rem;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p style="margin:0; font-weight:500;">No files selected yet.</p>
-          <span style="font-size:0.8125rem;">Drop a folder or select files in Step 3 to build your commit manifest.</span>
+          <svg class="icon icon-lg" style="margin-bottom:0.75rem; color:var(--subtle); width:2.25rem; height:2.25rem;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p style="margin:0; font-weight:600; color:var(--ink-secondary);">No files staged yet.</p>
+          <span style="font-size:0.78125rem;">Drop a project folder or select files in Step 3 to build your commit manifest.</span>
         </div>
 
         <div id="filledReview" hidden>
-          <!-- In-Browser Secret Detection Alert -->
+          <!-- Pre-commit Secret Alert Banner -->
           <div class="security-banner" id="securityBanner" hidden>
             <div class="security-banner-info">
-              <svg class="icon" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <span>Potential secrets or API keys detected in <span id="secretCount">0</span> file(s)!</span>
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Potential secrets or API credentials detected in <span id="secretCount">0</span> staged file(s)!</span>
             </div>
-            <button class="diff-pill" type="button" data-diff="secret" style="border-color:var(--err); color:var(--err);">Filter Secrets</button>
+            <button class="diff-pill" type="button" data-diff="secret" style="border-color:var(--err); color:var(--err); font-weight:700;">Filter Secrets</button>
           </div>
 
+          <!-- Staged Stats Bar -->
           <div class="review-stats-card">
             <div class="stats-group">
               <div class="stat-item">
@@ -315,13 +325,13 @@
               </div>
               <div class="stat-item">
                 <span class="stat-val" id="apiEst">0</span>
-                <span class="stat-lbl">Est. API Calls</span>
+                <span class="stat-lbl">Est. API Blobs</span>
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:0.4rem;">
-              <button class="btn btn-sm btn-subtle" id="downloadZipBtn" type="button" title="Download filtered files as a clean ZIP archive">
+              <button class="btn btn-sm btn-subtle" id="downloadZipBtn" type="button" title="Download sanitized staged files as clean ZIP">
                 <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                <span>Export Clean ZIP</span>
+                <span>Clean ZIP</span>
               </button>
               <button class="btn btn-sm btn-subtle" id="clear" type="button">
                 <svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -337,15 +347,16 @@
               <span class="diff-tag mod" id="diffMod">~0 modified</span>
               <span class="diff-tag same" id="diffSame">0 identical</span>
             </div>
-            <label class="checkbox-label" style="margin-bottom:0; font-size:0.75rem;">
+            <label class="checkbox-label" style="margin-bottom:0; font-size:0.71875rem;">
               <input id="skipUnchanged" type="checkbox">
-              <span>Skip identical files</span>
+              <span>Skip uploading identical files</span>
             </label>
           </div>
 
+          <!-- Filter & View Controls -->
           <div class="review-controls">
             <div style="flex:1; min-width:180px;">
-              <input id="filter" type="search" placeholder="Search files (e.g. .json, src/, index)..." aria-label="Search files">
+              <input id="filter" type="search" placeholder="Search manifest (e.g. .ts, src/, / to focus)…" aria-label="Search files">
             </div>
             <div class="diff-filter-tabs" id="diffFilterTabs">
               <button class="diff-pill active" type="button" data-diff="all">All</button>
@@ -364,18 +375,27 @@
               </button>
             </div>
             <div class="tree-controls" id="treeControls" hidden>
-              <button class="btn btn-sm btn-subtle" id="expandAllBtn" type="button" title="Expand all folders">Expand all</button>
+              <button class="btn btn-sm btn-subtle" id="expandAllBtn" type="button" title="Expand all folders">Expand</button>
               <button class="btn btn-sm btn-subtle" id="collapseAllBtn" type="button" title="Collapse all folders">Collapse</button>
             </div>
           </div>
 
-          <!-- Manifest Container -->
+          <!-- Manifest Container with Virtual Scroller Engine -->
           <div class="manifest-container" id="manifestWrap">
-            <ul class="manifest-list" id="manifest" aria-label="Files to upload"></ul>
+            <div class="manifest-table-header">
+              <span>Type</span>
+              <span>Staged Path</span>
+              <span>Diff</span>
+              <span style="text-align:right;">Size</span>
+              <span style="text-align:center;">Del</span>
+            </div>
+            <div class="virtual-spacer" style="height:0px; position:relative;">
+              <ul class="manifest-list" id="manifest" aria-label="Files staged for commit"></ul>
+            </div>
             <div class="tree-container" id="treeView" hidden></div>
           </div>
 
-          <p class="hint-text" id="note" style="color:var(--warn); margin-top:0.75rem;" hidden></p>
+          <p class="hint-text" id="note" style="color:var(--warn); margin-top:0.65rem;" hidden></p>
         </div>
 
         <div class="status-msg" id="msg" aria-live="polite"></div>
@@ -392,7 +412,7 @@
           <div class="pipeline-stages">
             <div class="pipeline-step" id="stage1">
               <div class="stage-dot">1</div>
-              <span class="stage-label">Prepare</span>
+              <span class="stage-label">Handshake</span>
             </div>
             <div class="pipeline-step" id="stage2">
               <div class="stage-dot">2</div>
@@ -437,7 +457,7 @@
       <div class="dock-secondary-text" id="barSub">Complete steps 1, 2, and 3 to begin upload</div>
     </div>
     <div class="dock-actions">
-      <button class="btn btn-primary" id="go" type="button" disabled>
+      <button class="btn btn-primary" id="go" type="button" disabled title="Shortcut: ⌘↵ / Ctrl+Enter">
         <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <span id="goText">Upload to GitHub</span>
       </button>
@@ -471,20 +491,56 @@
   <div class="modal-header">
     <div class="modal-title" style="color:var(--err); display:flex; align-items:center; gap:0.5rem;">
       <svg class="icon" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <span>Security Alert: Secrets Detected</span>
+      <span>Security Alert: Staged Secrets Detected</span>
     </div>
   </div>
   <div class="modal-body">
-    <p style="margin-top:0;">Folder to GitHub detected potential API keys, access tokens, or private credentials in <strong><span id="secretModalCount">0</span> file(s)</strong> staged for this commit.</p>
-    <p style="color:var(--muted); font-size:0.84rem;">Pushing credentials to GitHub—even to private repositories—can expose sensitive cloud accounts, databases, or API quotas if leaked or made public.</p>
+    <p style="margin-top:0;">Folder to GitHub detected credentials (API keys, PATs, or private keys) in <strong><span id="secretModalCount">0</span> file(s)</strong> staged for this commit.</p>
+    <p style="color:var(--muted); font-size:0.78125rem; line-height:1.4;">Pushing credentials to GitHub—even private repositories—can leak sensitive cloud resources, database keys, or third-party API quotas.</p>
     <label class="checkbox-label" style="margin-top:1rem;">
       <input id="skipSecretsCheck" type="checkbox">
-      <span>I understand the risks, do not warn me again for this session</span>
+      <span>I understand the security implications, do not warn me again for this session</span>
     </label>
-    <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.5rem;">
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
       <button class="btn btn-sm btn-subtle" id="cancelSecretPush" type="button">Review &amp; Fix Files</button>
-      <button class="btn btn-sm btn-danger" id="proceedSecretPush" type="button" style="background:var(--err); color:#fff; border:none; padding:0.5rem 1rem;">Proceed Anyway</button>
+      <button class="btn btn-sm btn-danger" id="proceedSecretPush" type="button">Proceed Anyway</button>
     </div>
+  </div>
+</dialog>
+
+<!-- Keyboard Shortcuts Modal -->
+<dialog class="shortcuts-modal" id="shortcutsModal">
+  <div class="modal-header">
+    <div class="modal-title">Keyboard Shortcuts</div>
+    <button class="action-icon-btn" id="closeShortcutsModal" type="button" aria-label="Close shortcuts dialog">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="modal-body">
+    <table style="width:100%; border-collapse:collapse; font-size:0.8125rem;">
+      <tbody>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:0.6rem 0; font-weight:600;">Open Folder Selector</td>
+          <td style="padding:0.6rem 0; text-align:right;"><kbd>⌘</kbd> <kbd>O</kbd> / <kbd>Ctrl</kbd> <kbd>O</kbd></td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:0.6rem 0; font-weight:600;">Push Staged Commit</td>
+          <td style="padding:0.6rem 0; text-align:right;"><kbd>⌘</kbd> <kbd>Enter</kbd> / <kbd>Ctrl</kbd> <kbd>Enter</kbd></td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:0.6rem 0; font-weight:600;">Focus File Search / Filter</td>
+          <td style="padding:0.6rem 0; text-align:right;"><kbd>/</kbd></td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:0.6rem 0; font-weight:600;">Close Modals / Overlays</td>
+          <td style="padding:0.6rem 0; text-align:right;"><kbd>Esc</kbd></td>
+        </tr>
+        <tr>
+          <td style="padding:0.6rem 0; font-weight:600;">Toggle Shortcuts Cheat Sheet</td>
+          <td style="padding:0.6rem 0; text-align:right;"><kbd>?</kbd></td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </dialog>
 
