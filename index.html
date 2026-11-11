@@ -816,6 +816,11 @@ body.window-dragging .dropzone {
 .dropzone:hover .drop-icon-wrap {
   transform: translateY(-2px);
 }
+.dropzone.drag-active .drop-icon-wrap,
+body.window-dragging .dropzone .drop-icon-wrap {
+  transform: translateY(-6px) scale(1.08);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+}
 .drop-title {
   font-family: var(--display);
   font-size: clamp(1.25rem, 1rem + 1vw, 1.6rem);
@@ -1368,6 +1373,269 @@ body.window-dragging .drop-overlay {
   border-width: 0;
 }
 
+/* Toast Notifications */
+.toast-shelf {
+  position: fixed;
+  bottom: 5.8rem;
+  right: clamp(1rem, 3vw, 2rem);
+  z-index: 120;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: min(90vw, 380px);
+}
+.toast-item {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  background: var(--surface-elevated);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.84rem;
+  font-weight: 500;
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-item.toast-ok { border-color: var(--ok-border); background: var(--ok-subtle); color: var(--ok); }
+.toast-item.toast-err { border-color: var(--err-border); background: var(--err-subtle); color: var(--err); }
+.toast-item.toast-out {
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Upload Pipeline Card */
+.pipeline-card {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.08);
+  animation: slideUp 0.25s ease-out;
+}
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.pipeline-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--ink);
+}
+.pipeline-speed {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent-border);
+}
+.pipeline-stages {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  position: relative;
+  margin-bottom: 0.85rem;
+}
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: center;
+  position: relative;
+}
+.pipeline-step::after {
+  content: '';
+  position: absolute;
+  top: 0.7rem;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+  z-index: 1;
+}
+.pipeline-step:last-child::after { display: none; }
+.stage-dot {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  border: 2px solid var(--line-strong);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+.pipeline-step.active .stage-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  animation: pulseRing 1s infinite alternate;
+}
+@keyframes pulseRing {
+  from { transform: scale(0.96); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
+  to { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.3); }
+}
+.pipeline-step.done .stage-dot {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+.pipeline-step.done::after {
+  background: var(--ok);
+}
+.stage-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+.pipeline-step.active .stage-label { color: var(--accent); }
+.pipeline-step.done .stage-label { color: var(--ok); }
+
+.pipeline-current-file {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+
+/* Spinner pulse */
+.spinner-pulse {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Confetti canvas */
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+  display: none;
+}
+
+/* File type badges */
+.ext-badge {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  line-height: 1.1;
+}
+.ext-js, .ext-ts, .ext-jsx, .ext-tsx { background: #fef08a; color: #854d0e; }
+.ext-json, .ext-yaml, .ext-yml { background: #fed7aa; color: #9a3412; }
+.ext-html, .ext-xml, .ext-svg { background: #ffedd5; color: #c2410c; }
+.ext-css, .ext-scss, .ext-sass { background: #f3e8ff; color: #6b21a8; }
+.ext-md, .ext-txt { background: #e2e8f0; color: #334155; }
+.ext-img, .ext-png, .ext-jpg, .ext-jpeg, .ext-webp, .ext-gif { background: #fce7f3; color: #9d174d; }
+.ext-py, .ext-sh, .ext-rb { background: #dbeafe; color: #1e40af; }
+.ext-other { background: var(--bg-subtle); color: var(--muted); }
+
+/* Shimmer upload animation */
+.manifest-row.uploading {
+  background: linear-gradient(90deg, var(--surface) 0%, color-mix(in srgb, var(--accent) 15%, var(--surface)) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: rowShimmer 1.4s infinite linear;
+}
+@keyframes rowShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Modern Dialog Animations with @starting-style */
+dialog.preview-modal {
+  opacity: 0;
+  transform: scale(0.96) translateY(8px);
+  transition: opacity 0.22s ease-out, transform 0.22s ease-out, overlay 0.22s allow-discrete, display 0.22s allow-discrete;
+}
+dialog.preview-modal[open] {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+@starting-style {
+  dialog.preview-modal[open] {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+}
+dialog.preview-modal::backdrop {
+  opacity: 0;
+  transition: opacity 0.22s ease-out, overlay 0.22s allow-discrete, display 0.22s allow-discrete;
+}
+dialog.preview-modal[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  dialog.preview-modal[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* Tree controls in review header */
+.tree-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Checkmark draw animation for success */
+.draw-check {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: drawStroke 0.6s 0.15s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+@keyframes drawStroke {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Smooth transitions for theme switching */
+body, .step-card, .action-dock, input, textarea, select {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -1670,6 +1938,10 @@ body.window-dragging .drop-overlay {
                 <span>Tree</span>
               </button>
             </div>
+            <div class="tree-controls" id="treeControls" hidden>
+              <button class="btn btn-sm btn-subtle" id="expandAllBtn" type="button" title="Expand all folders">Expand all</button>
+              <button class="btn btn-sm btn-subtle" id="collapseAllBtn" type="button" title="Collapse all folders">Collapse</button>
+            </div>
           </div>
 
           <!-- Manifest Container -->
@@ -1683,10 +1955,44 @@ body.window-dragging .drop-overlay {
 
         <div class="status-msg" id="msg" aria-live="polite"></div>
 
+        <!-- Live Upload Pipeline Card -->
+        <div class="pipeline-card" id="pipelineCard" hidden>
+          <div class="pipeline-header">
+            <div class="pipeline-title">
+              <span class="spinner-pulse" id="pipelineSpinner"></span>
+              <span id="pipelineStatusText">Preparing upload…</span>
+            </div>
+            <div class="pipeline-speed" id="pipelineSpeed">0 KB/s</div>
+          </div>
+          <div class="pipeline-stages">
+            <div class="pipeline-step" id="stage1">
+              <div class="stage-dot">1</div>
+              <span class="stage-label">Prepare</span>
+            </div>
+            <div class="pipeline-step" id="stage2">
+              <div class="stage-dot">2</div>
+              <span class="stage-label">Blobs</span>
+            </div>
+            <div class="pipeline-step" id="stage3">
+              <div class="stage-dot">3</div>
+              <span class="stage-label">Git Tree</span>
+            </div>
+            <div class="pipeline-step" id="stage4">
+              <div class="stage-dot">4</div>
+              <span class="stage-label">Commit</span>
+            </div>
+            <div class="pipeline-step" id="stage5">
+              <div class="stage-dot">5</div>
+              <span class="stage-label">Publish</span>
+            </div>
+          </div>
+          <div class="pipeline-current-file" id="pipelineFile">Initializing Git objects…</div>
+        </div>
+
         <!-- Success Result -->
         <div class="result-card" id="result" hidden>
           <div class="result-title">
-            <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline class="draw-check" points="22 4 12 14.01 9 11.01"/></svg>
             <span>Commit Published Successfully!</span>
           </div>
           <div class="result-meta" id="resultMeta"></div>
@@ -1718,12 +2024,28 @@ body.window-dragging .drop-overlay {
 <dialog class="preview-modal" id="previewModal">
   <div class="modal-header">
     <div class="modal-title" id="previewTitle">File Preview</div>
-    <button class="action-icon-btn" id="closeModal" type="button" aria-label="Close dialog">
-      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
+    <div style="display:flex; align-items:center; gap:0.4rem;">
+      <button class="btn btn-sm btn-subtle" id="copyContentBtn" type="button" title="Copy file contents">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <span id="copyContentText">Copy</span>
+      </button>
+      <button class="btn btn-sm btn-subtle" id="downloadFileBtn" type="button" title="Download file to computer">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Download</span>
+      </button>
+      <button class="action-icon-btn" id="closeModal" type="button" aria-label="Close dialog">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
   </div>
   <div class="modal-body" id="previewBody"></div>
 </dialog>
+
+<!-- Canvas Confetti -->
+<canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+
+<!-- Toast Shelf Container -->
+<div class="toast-shelf" id="toastShelf" aria-live="polite"></div>
 
 <script>
 /**
@@ -1768,6 +2090,144 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
   del: k => { try { localStorage.removeItem(k); } catch {} }
 };
+
+/* ---------- UX Helpers: Toast, Confetti, Animations ---------- */
+function showToast(text, type = 'info', iconSvg = '') {
+  const shelf = $('#toastShelf');
+  if (!shelf) return;
+  const item = document.createElement('div');
+  item.className = 'toast-item' + (type === 'ok' ? ' toast-ok' : type === 'err' ? ' toast-err' : '');
+  const icon = iconSvg || (type === 'ok' 
+    ? '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' 
+    : type === 'err' 
+    ? '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+    : '<svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>');
+  item.innerHTML = `${icon}<span>${escapeHTML(text)}</span>`;
+  shelf.append(item);
+  setTimeout(() => {
+    item.classList.add('toast-out');
+    setTimeout(() => item.remove(), 220);
+  }, 3200);
+}
+
+function triggerConfetti() {
+  const canvas = $('#confettiCanvas');
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  const colors = ['#2563eb', '#3b82f6', '#10b981', '#059669', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+  const particles = Array.from({ length: 95 }, () => ({
+    x: canvas.width * 0.5 + (Math.random() - 0.5) * 350,
+    y: canvas.height * 0.65,
+    vx: (Math.random() - 0.5) * 16,
+    vy: -Math.random() * 17 - 9,
+    size: Math.random() * 8 + 5,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rotation: Math.random() * 360,
+    vRot: (Math.random() - 0.5) * 12,
+    opacity: 1
+  }));
+
+  const start = performance.now();
+  function loop(now) {
+    const elapsed = now - start;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.48;
+      p.vx *= 0.98;
+      p.rotation += p.vRot;
+      if (elapsed > 1700) p.opacity -= 0.025;
+      if (p.opacity > 0 && p.y < canvas.height + 20) {
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+        ctx.restore();
+      }
+    });
+
+    if (alive && elapsed < 3500) {
+      requestAnimationFrame(loop);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'none';
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+function animateNumber(el, target, formatFn = n => n.toLocaleString()) {
+  if (!el) return;
+  const currentVal = Number(el.dataset.rawVal || 0);
+  if (currentVal === target) {
+    el.textContent = formatFn(target);
+    return;
+  }
+  const duration = 380;
+  const startTime = performance.now();
+  function update(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const cur = Math.round(currentVal + (target - currentVal) * ease);
+    el.textContent = formatFn(cur);
+    if (progress < 1) requestAnimationFrame(update);
+    else {
+      el.dataset.rawVal = target;
+      el.textContent = formatFn(target);
+    }
+  }
+  requestAnimationFrame(update);
+}
+
+function getFileBadge(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  let cls = 'ext-other', lbl = ext ? ext.slice(0, 4) : 'FILE';
+  if (['js', 'mjs', 'cjs'].includes(ext)) { cls = 'ext-js'; lbl = 'JS'; }
+  else if (['ts', 'mts'].includes(ext)) { cls = 'ext-ts'; lbl = 'TS'; }
+  else if (['jsx', 'tsx'].includes(ext)) { cls = 'ext-ts'; lbl = ext.toUpperCase(); }
+  else if (['json', 'yaml', 'yml'].includes(ext)) { cls = 'ext-json'; lbl = ext.toUpperCase(); }
+  else if (['html', 'htm'].includes(ext)) { cls = 'ext-html'; lbl = 'HTML'; }
+  else if (['css', 'scss', 'sass', 'less'].includes(ext)) { cls = 'ext-css'; lbl = 'CSS'; }
+  else if (['md', 'txt', 'markdown'].includes(ext)) { cls = 'ext-md'; lbl = 'MD'; }
+  else if (['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif', 'ico'].includes(ext)) { cls = 'ext-img'; lbl = 'IMG'; }
+  else if (['py'].includes(ext)) { cls = 'ext-py'; lbl = 'PY'; }
+  else if (['sh', 'bash'].includes(ext)) { cls = 'ext-sh'; lbl = 'SH'; }
+  return `<span class="ext-badge ${cls}">${lbl}</span>`;
+}
+
+function setPipelineStage(stageNum, title, currentFileName, speedText = '') {
+  const card = $('#pipelineCard');
+  if (!card) return;
+  card.hidden = false;
+  if (title) $('#pipelineStatusText').textContent = title;
+  if (currentFileName) $('#pipelineFile').textContent = currentFileName;
+  if (speedText) $('#pipelineSpeed').textContent = speedText;
+
+  for (let i = 1; i <= 5; i++) {
+    const stepEl = $('#stage' + i);
+    if (!stepEl) continue;
+    const dot = stepEl.querySelector('.stage-dot');
+    if (i < stageNum) {
+      stepEl.className = 'pipeline-step done';
+      dot.innerHTML = '<svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+    } else if (i === stageNum) {
+      stepEl.className = 'pipeline-step active';
+      dot.textContent = i;
+    } else {
+      stepEl.className = 'pipeline-step';
+      dot.textContent = i;
+    }
+  }
+}
 
 /* ---------- Theme Switcher ---------- */
 const themeToggle = $('#themeToggle');
@@ -2208,11 +2668,20 @@ function deleteFolder(folderRepoPath) {
   refresh();
 }
 
+function countNodeFiles(node) {
+  let count = node.files.length;
+  for (const child of node.children.values()) {
+    count += countNodeFiles(child);
+  }
+  return count;
+}
+
 function renderTree(node, container, depth = 0) {
   // Folders first
   const folderNames = [...node.children.keys()].sort();
   for (const fName of folderNames) {
     const childNode = node.children.get(fName);
+    const count = countNodeFiles(childNode);
     const folderWrap = document.createElement('div');
     folderWrap.className = 'tree-node';
 
@@ -2221,7 +2690,7 @@ function renderTree(node, container, depth = 0) {
     folderBar.innerHTML = `
       <svg class="icon icon-sm tree-folder-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       <svg class="icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-      <span style="flex:1;">${escapeHTML(fName)}</span>
+      <span style="flex:1;">${escapeHTML(fName)} <span style="font-size:0.75rem; color:var(--muted); font-weight:400;">(${count})</span></span>
       <button class="action-icon-btn remove-folder-btn" type="button" aria-label="Remove entire folder" title="Remove entire folder">×</button>
     `;
 
@@ -2237,6 +2706,7 @@ function renderTree(node, container, depth = 0) {
     folderBar.querySelector('.remove-folder-btn').onclick = (e) => {
       e.stopPropagation();
       deleteFolder(childNode.fullPath);
+      showToast(`Removed folder: ${fName}`, 'info');
     };
 
     folderWrap.append(folderBar, childrenWrap);
@@ -2251,9 +2721,10 @@ function renderTree(node, container, depth = 0) {
     fileRow.className = 'tree-file';
     fileRow.dataset.path = item.path;
     const name = item.repoPath.split('/').pop();
+    const badge = getFileBadge(name);
     fileRow.innerHTML = `
-      <div style="display:flex; align-items:center; gap:0.4rem; min-width:0; overflow:hidden;">
-        <svg class="icon icon-sm" style="color:var(--muted);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div style="display:flex; align-items:center; gap:0.45rem; min-width:0; overflow:hidden;">
+        ${badge}
         <span class="file-path" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${escapeHTML(item.repoPath)}">${escapeHTML(name)}</span>
       </div>
       <div style="display:flex; align-items:center; gap:0.6rem;">
@@ -2266,6 +2737,7 @@ function renderTree(node, container, depth = 0) {
       e.stopPropagation();
       files.delete(item.path);
       refresh();
+      showToast(`Removed ${name}`, 'info');
     };
     container.append(fileRow);
   });
@@ -2288,12 +2760,14 @@ function refresh() {
 
   $('#emptyReview').hidden = files.size > 0;
   $('#filledReview').hidden = files.size === 0;
-  $('#cnt').textContent = out.length.toLocaleString();
-  $('#size').textContent = fmt(totalBytes);
-  // Estimate git calls: blobs (non-inline) + trees + 1 commit + 1 ref
+  
+  // Smooth number transitions
+  animateNumber($('#cnt'), out.length);
+  animateNumber($('#size'), totalBytes, fmt);
+  
   const estBlobs = out.filter(o => o.file.size > INLINE_MAX).length;
   const estTrees = Math.ceil(out.length / TREE_MAX_ENTRIES);
-  $('#apiEst').textContent = (estBlobs + estTrees + 2).toLocaleString();
+  animateNumber($('#apiEst'), estBlobs + estTrees + 2);
 
   // Render Flat List
   const q = $('#filter').value.trim().toLowerCase();
@@ -2309,9 +2783,13 @@ function refresh() {
     li.dataset.path = o.path;
 
     const isWarn = o.file.size > MAX_FILE_SIZE;
+    const badge = getFileBadge(o.repoPath);
     li.innerHTML = `
       <span class="status-indicator"></span>
-      <span class="file-path" title="${escapeHTML(o.repoPath)}">${escapeHTML(o.repoPath)}</span>
+      <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; overflow:hidden;">
+        ${badge}
+        <span class="file-path" title="${escapeHTML(o.repoPath)}" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHTML(o.repoPath)}</span>
+      </div>
       <div style="display:flex; align-items:center; gap:0.4rem;">
         ${isWarn ? `<span class="warning-badge" title="Files > 50MB should ideally use Git LFS">Large</span>` : ''}
         <span class="file-size">${fmt(o.file.size)}</span>
@@ -2326,6 +2804,7 @@ function refresh() {
       e.stopPropagation();
       files.delete(o.path);
       refresh();
+      showToast(`Removed ${o.repoPath.split('/').pop()}`, 'info');
     };
 
     manifest.append(li);
@@ -2408,6 +2887,7 @@ $('#tabFlat').onclick = () => {
   $('#tabTree').setAttribute('aria-selected', 'false');
   $('#manifest').hidden = false;
   $('#treeView').hidden = true;
+  $('#treeControls').hidden = true;
 };
 
 $('#tabTree').onclick = () => {
@@ -2418,6 +2898,17 @@ $('#tabTree').onclick = () => {
   $('#tabFlat').setAttribute('aria-selected', 'false');
   $('#manifest').hidden = true;
   $('#treeView').hidden = false;
+  $('#treeControls').hidden = false;
+};
+
+$('#expandAllBtn').onclick = () => {
+  $$('.tree-children').forEach(c => c.classList.remove('collapsed'));
+  $$('.tree-folder').forEach(f => f.classList.add('open'));
+};
+
+$('#collapseAllBtn').onclick = () => {
+  $$('.tree-children').forEach(c => c.classList.add('collapsed'));
+  $$('.tree-folder').forEach(f => f.classList.remove('open'));
 };
 
 $('#filter').addEventListener('input', refresh);
@@ -2432,16 +2923,49 @@ $('#clear').onclick = () => {
   msg('');
   srcMsg('');
   refresh();
+  showToast('All files cleared', 'info');
 };
 
 /* ---------- File Preview Modal ---------- */
 const modal = $('#previewModal');
+let currentPreviewItem = null;
+let currentPreviewText = null;
+
 $('#closeModal').onclick = () => modal.close();
 modal.addEventListener('click', (e) => {
   if (e.target === modal) modal.close();
 });
 
+$('#copyContentBtn').onclick = () => {
+  if (!currentPreviewText) {
+    showToast('No text content available to copy', 'err');
+    return;
+  }
+  navigator.clipboard.writeText(currentPreviewText);
+  const btn = $('#copyContentBtn');
+  const txt = $('#copyContentText');
+  txt.textContent = 'Copied!';
+  btn.style.color = 'var(--ok)';
+  showToast('File content copied to clipboard!', 'ok');
+  setTimeout(() => {
+    txt.textContent = 'Copy';
+    btn.style.color = '';
+  }, 2000);
+};
+
+$('#downloadFileBtn').onclick = () => {
+  if (!currentPreviewItem) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(currentPreviewItem.file);
+  a.download = currentPreviewItem.repoPath.split('/').pop();
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Downloaded ' + a.download, 'ok');
+};
+
 async function openFilePreview(item) {
+  currentPreviewItem = item;
+  currentPreviewText = null;
   const { path, repoPath, file } = item;
   $('#previewTitle').textContent = repoPath;
   const body = $('#previewBody');
@@ -2475,9 +2999,12 @@ async function openFilePreview(item) {
     const buf = await file.arrayBuffer();
     const text = asText(buf);
     if (text !== null) {
+      currentPreviewText = text;
+      const lines = text.split('\n');
       body.innerHTML = `
-        <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.6rem; font-family:var(--mono);">
-          ${text.split('\n').length} lines • ${fmt(file.size)}
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--muted); margin-bottom:0.6rem; font-family:var(--mono);">
+          <span>${lines.length} lines • ${fmt(file.size)}</span>
+          ${getFileBadge(repoPath)}
         </div>
         <pre class="preview-code"><code>${escapeHTML(text)}</code></pre>
       `;
@@ -2650,12 +3177,15 @@ $('#go').onclick = async () => {
   setBusy(true);
   let repoCreated = false;
 
+  setPipelineStage(1, 'Verifying GitHub repository…', 'Connecting to ' + slug + '…');
+
   try {
     let repo;
     if (create) {
       if (!me) await verifyToken();
       if (!me) throw new Error('Token verification required to create repository');
       msg('Creating new repository on GitHub…');
+      setPipelineStage(1, 'Creating new repository…', slug);
       repo = await gh('/user/repos', {
         method: 'POST',
         noRetry: true,
@@ -2729,6 +3259,8 @@ $('#go').onclick = async () => {
     let nextIndex = 0, doneCount = 0, sentBytes = 0;
     let bigFileGate = Promise.resolve();
 
+    setPipelineStage(2, 'Uploading Blobs (0/' + out.length + ')', 'Initializing workers…', '0 KB/s');
+
     const uploadBlob = async o => {
       const b = await gh('/repos/' + slug + '/git/blobs', {
         method: 'POST',
@@ -2791,6 +3323,8 @@ $('#go').onclick = async () => {
         $('#barSub').textContent = `${fmt(speed)}/s • ETA: ${eta}s remaining`;
         msg(`Uploading files (${Math.round(pct)}%)…`);
 
+        setPipelineStage(2, `Uploading Blobs (${doneCount}/${out.length})`, o.repoPath, `${fmt(speed)}/s`);
+
         if (li) {
           li.classList.remove('uploading');
           li.classList.add('done');
@@ -2803,6 +3337,8 @@ $('#go').onclick = async () => {
     if (cancelled) throw CANCELLED_ERR();
 
     msg('Constructing Git tree…');
+    setPipelineStage(3, 'Constructing Git Tree…', 'Chaining directory tree objects…');
+
     const treeList = entries.slice();
     if (seededEmpty && !out.some(o => o.repoPath === '.gitkeep')) {
       treeList.push({ path: '.gitkeep', mode: '100644', type: 'blob', sha: null });
@@ -2834,18 +3370,30 @@ $('#go').onclick = async () => {
     }
 
     msg('Creating Git commit object…');
+    setPipelineStage(4, 'Creating Git Commit Object…', fullCommitMessage.split('\n')[0]);
+
     const commitObj = await gh('/repos/' + slug + '/git/commits', {
       method: 'POST',
       body: JSON.stringify({ message: fullCommitMessage, tree: treeSha, parents: [baseSha] })
     });
 
     msg('Updating branch reference…');
+    setPipelineStage(5, 'Updating Branch Reference…', `Pointing refs/heads/${branch} to ${commitObj.sha.slice(0, 7)}`);
+
     await gh('/repos/' + slug + '/git/refs/heads/' + enc(branch), {
       method: 'PATCH',
       body: JSON.stringify({ sha: commitObj.sha })
     });
 
     $('#prog').value = 100;
+    setPipelineStage(6, 'Commit Published!', 'Complete');
+    setTimeout(() => {
+      $('#pipelineCard').hidden = true;
+    }, 1400);
+
+    // Confetti celebration & audio/toast
+    triggerConfetti();
+    showToast(`Published ${plural(out.length, 'file')} to ${branch}!`, 'ok');
     msg('');
 
     // Success Card Presentation
@@ -2868,7 +3416,12 @@ $('#go').onclick = async () => {
 
     $('#copyShaBtn').onclick = () => {
       navigator.clipboard.writeText(commitObj.sha);
-      msg('Commit SHA copied to clipboard!', 'ok');
+      showToast('Commit SHA copied: ' + commitObj.sha.slice(0, 7), 'ok');
+      const pill = $('#shaPill');
+      if (pill) {
+        pill.style.borderColor = 'var(--ok)';
+        setTimeout(() => pill.style.borderColor = '', 2000);
+      }
     };
 
     const acts = $('#resultActions');
@@ -2894,6 +3447,7 @@ $('#go').onclick = async () => {
 
     resEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
+    $('#pipelineCard').hidden = true;
     if (err.cancelled) {
       msg('Upload cancelled. No commits were created.' + (repoCreated ? ' The new repository was already initialized.' : ''));
     } else if (err.identical) {
